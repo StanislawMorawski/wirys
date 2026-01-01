@@ -7,8 +7,7 @@ const route = useRoute()
 const navItems = [
   { name: 'Chores', path: '/', icon: '🏠' },
   { name: 'Exercises', path: '/exercises', icon: '💪' },
-  { name: 'Groceries', path: '/groceries', icon: '🛒' },
-  { name: 'Calendar', path: '/calendar', icon: '📅' }
+  { name: 'Groceries', path: '/groceries', icon: '🛒' }
 ]
 
 const isActive = (path: string) => {

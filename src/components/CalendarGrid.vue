@@ -6,7 +6,8 @@ export default defineComponent({
   props: {
     year: { type: Number, required: false },
     month: { type: Number, required: false }, // 0 indexed
-    events: { type: Array as unknown as () => Array<{ date: string; payload?: any }>, default: () => [] }
+    events: { type: Array as unknown as () => Array<{ date: string; payload?: any }>, default: () => [] },
+    highlightDates: { type: Array as unknown as () => string[], required: false }
   },
   emits: ['changeMonth', 'dayClick'],
   setup(props, { emit }) {
@@ -46,6 +47,8 @@ export default defineComponent({
       return map
     })
 
+    const highlightSet = computed(() => new Set((props.highlightDates || []).map(d => d)))
+
     function prevMonth() {
       if (activeMonth.value === 0) {
         activeMonth.value = 11
@@ -77,6 +80,7 @@ export default defineComponent({
       grid,
       eventsByDate,
       eventsList,
+      highlightSet,
       prevMonth,
       nextMonth,
       onDayClick
@@ -110,7 +114,7 @@ export default defineComponent({
       <div
         v-for="cell in grid"
         :key="cell.date"
-        class="h-20 border rounded p-1 bg-white flex flex-col justify-between"
+        :class="['h-20 border rounded p-1 bg-white flex flex-col justify-between', highlightSet.has(cell.date) ? 'bg-green-50 border-green-200' : '']"
       >
         <div class="flex items-center justify-between">
           <div class="text-xs font-medium">{{ cell.dayNum }}</div>

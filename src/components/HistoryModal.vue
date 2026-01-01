@@ -26,6 +26,12 @@ const calendarEvents = computed(() => {
   return completions.value.map(c => ({ date: toDateKey(c.completedAt), payload: { name: props.item?.name, trackableName: props.item?.name, amount: c.amount, notes: c.notes } }))
 })
 
+const highlightDates = computed(() => {
+  const s = new Set<string>()
+  for (const c of completions.value) s.add(toDateKey(c.completedAt))
+  return Array.from(s)
+})
+
 const calendarYear = computed(() => {
   if (completions.value.length === 0) return getNow().getFullYear()
   const d = new Date(completions.value[0].completedAt)
@@ -186,7 +192,7 @@ async function handleDeleteEntry(completionId: number | undefined) {
 
           <div v-if="view === 'calendar' && item">
               <div class="text-xs text-gray-500 mb-2">Events this item: {{ calendarEvents.length }} • Year: {{ calendarYear }} • Month: {{ calendarMonth }}</div>
-              <CalendarGrid :events="calendarEvents" :year="calendarYear" :month="calendarMonth" @dayClick="selectedDay = $event" />
+              <CalendarGrid :events="calendarEvents" :highlight-dates="highlightDates" :year="calendarYear" :month="calendarMonth" @dayClick="selectedDay = $event" />
 
               <div v-if="selectedDay" class="mt-4">
                 <div class="font-semibold mb-2">Entries on {{ selectedDay }}</div>
