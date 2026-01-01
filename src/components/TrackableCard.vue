@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TrackableWithStatus } from '@/types'
 import { computed } from 'vue'
+import { getNow } from '@/dev/time'
 
 const props = defineProps<{
   item: TrackableWithStatus
@@ -14,12 +15,20 @@ const emit = defineEmits<{
 
 function formatDate(date: Date | undefined): string {
   if (!date) return 'Never'
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit'
-  }).format(new Date(date))
+
+  const now = getNow()
+  const d = new Date(date)
+  const diff = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24)) // full days difference
+
+  if (diff === 0) return 'Today'
+  if (diff === 1) return 'Yesterday'
+  if (diff < 7) return `${diff} days ago`
+  if (diff < 30) {
+    const weeks = Math.floor(diff / 7)
+    return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`
+  }
+  const months = Math.floor(diff / 30)
+  return `${months} ${months === 1 ? 'month' : 'months'} ago`
 }
 
 function formatRecurrence(item: TrackableWithStatus): string {
