@@ -55,14 +55,15 @@ async function handleSave(data: Omit<Trackable, 'id' | 'createdAt' | 'archived'>
   showForm.value = false
 }
 
-async function handleDelete() {
-  console.log('handleDelete called, editingItem:', editingItem.value)
-  if (editingItem.value?.id !== undefined) {
-    console.log('Deleting trackable with id:', editingItem.value.id)
-    await store.deleteTrackable(editingItem.value.id)
+async function handleDelete(id?: number) {
+  console.log('handleDelete called, id param:', id, 'editingItem:', editingItem.value)
+  const idToDelete = (id && id > 0) ? id : editingItem.value?.id
+  if (idToDelete !== undefined) {
+    console.log('Deleting trackable with id:', idToDelete)
+    await store.deleteTrackable(idToDelete)
     console.log('Deleted trackable')
   } else {
-    console.error('No id found on editingItem')
+    console.error('No id found to delete')
   }
   showForm.value = false
 }
@@ -72,6 +73,17 @@ async function handleLogExercise(amount: number, notes?: string) {
     await store.markComplete(logItem.value.id, notes, amount)
   }
   showLogModal.value = false
+}
+
+async function handleQuickComplete(item: TrackableWithStatus) {
+  // Compute amount needed to complete today's quota
+  const target = item.currentPeriodTarget || item.targetAmount || 0
+  const done = item.currentPeriodDone || 0
+  const toComplete = Math.max(1, target - done)
+  console.log('Quick complete', item.id, toComplete)
+  if (item.id !== undefined && toComplete > 0) {
+    await store.markComplete(item.id, undefined, toComplete)
+  }
 }
 
 const totalDebt = () => {
@@ -144,6 +156,7 @@ const totalDebt = () => {
         :key="item.id"
         :item="item"
         @log-exercise="openLogModal(item)"
+        @complete-today="handleQuickComplete(item)"
         @edit="openEditForm(item)"
         @view-history="openHistory(item)"
       />
@@ -156,7 +169,7 @@ const totalDebt = () => {
       :person-id="peopleStore.selectedPersonId"
       @close="showForm = false"
       @save="handleSave"
-      @delete="handleDelete"
+      @delete-item="handleDelete"
     />
 
     <HistoryModal

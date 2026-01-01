@@ -8,6 +8,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   logExercise: []
+  completeToday: []
   edit: []
   viewHistory: []
 }>()
@@ -196,15 +197,27 @@ const debtPercent = computed(() => {
         </div>
       </div>
       
-      <button
-        @click="emit('logExercise')"
-        class="flex-shrink-0 w-14 h-14 rounded-full bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white flex items-center justify-center shadow-lg transition-all touch-action-manipulation"
-        title="Log exercise"
-      >
-        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-        </svg>
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          @click="emit('completeToday')"
+          class="flex-shrink-0 w-10 h-10 rounded-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center shadow transition-all"
+          title="Complete today's quota"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+        </button>
+
+        <button
+          @click="emit('logExercise')"
+          class="flex-shrink-0 w-14 h-14 rounded-full bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white flex items-center justify-center shadow-lg transition-all touch-action-manipulation"
+          title="Log exercise"
+        >
+          <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+      </div>
     </div>
     
     <div class="flex gap-2 mt-3 pt-3 border-t border-gray-100">

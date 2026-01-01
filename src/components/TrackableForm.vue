@@ -12,7 +12,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
   save: [data: Omit<Trackable, 'id' | 'createdAt' | 'archived'>]
-  delete: []
+  deleteItem: [id: number]
 }>()
 
 const name = ref('')
@@ -69,7 +69,13 @@ function handleSubmit() {
 
 function handleDelete() {
   if (confirm('Are you sure you want to delete this item? All history will be lost.')) {
-    emit('delete')
+    // Emit the id of the item to delete so parent doesn't rely on modal-scoped state
+    if (props.editItem?.id !== undefined) {
+      emit('delete-item', props.editItem.id)
+    } else {
+      // Fallback - emit an invalid id to allow parent to handle gracefully
+      emit('delete-item', -1)
+    }
   }
 }
 </script>

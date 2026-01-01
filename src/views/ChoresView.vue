@@ -59,14 +59,15 @@ async function handleSave(data: Omit<Trackable, 'id' | 'createdAt' | 'archived'>
   showForm.value = false
 }
 
-async function handleDelete() {
-  console.log('handleDelete called, editingItem:', editingItem.value)
-  if (editingItem.value?.id !== undefined) {
-    console.log('Deleting trackable with id:', editingItem.value.id)
-    await store.deleteTrackable(editingItem.value.id)
+async function handleDelete(id?: number) {
+  console.log('handleDelete called, id param:', id, 'editingItem:', editingItem.value)
+  const idToDelete = (id && id > 0) ? id : editingItem.value?.id
+  if (idToDelete !== undefined) {
+    console.log('Deleting trackable with id:', idToDelete)
+    await store.deleteTrackable(idToDelete)
     console.log('Deleted trackable')
   } else {
-    console.error('No id found on editingItem')
+    console.error('No id found to delete')
   }
   showForm.value = false
 }
@@ -173,7 +174,7 @@ function formatDate(date: Date): string {
       :edit-item="editingItem"
       @close="showForm = false"
       @save="handleSave"
-      @delete="handleDelete"
+      @delete-item="handleDelete"
     />
 
     <HistoryModal
