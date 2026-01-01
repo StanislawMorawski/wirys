@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { db, getTrackablesByType, getCompletionsForTrackable, getLastCompletion } from '@/db'
-import type { Trackable, Completion, TrackableWithStatus, TrackableType, Recurrence } from '@/types'
+import { getNow, offsetMs } from '@/dev/time'
+import type { Trackable, Completion, TrackableWithStatus, TrackableType, Recurrence } from '@/types' 
 
 function calculateNextDue(lastCompleted: Date | undefined, recurrence: Recurrence, createdAt: Date): Date {
   const baseDate = lastCompleted || createdAt
@@ -22,7 +23,7 @@ function calculateNextDue(lastCompleted: Date | undefined, recurrence: Recurrenc
 }
 
 function getDaysOverdue(nextDue: Date): number {
-  const now = new Date()
+  const now = getNow()
   const diff = now.getTime() - nextDue.getTime()
   return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)))
 }
@@ -42,7 +43,7 @@ function calculateExerciseDebt(
   const targetAmount = trackable.targetAmount || 0
   const recurrenceDays = getRecurrenceInDays(trackable.recurrence)
   
-  const now = new Date()
+  const now = getNow()
   const created = new Date(trackable.createdAt)
   const daysSinceCreation = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24))
   
@@ -168,10 +169,18 @@ export const useTrackableStore = defineStore('trackables', () => {
     }
   }
 
+  // When dev time offset changes, reload to recompute overdue, debt, etc.
+  watch(() => offsetMs.value, () => {
+    // Avoid calling while loading to prevent overlapping calls
+    if (!loading.value) {
+      loadTrackables(currentType.value, currentPersonId.value || undefined)
+    }
+  })
+
   async function addTrackable(data: Omit<Trackable, 'id' | 'createdAt' | 'archived'>) {
     const trackable: Trackable = {
       ...data,
-      createdAt: new Date(),
+      createdAt: getNow(),
       archived: false
     }
     await db.trackables.add(trackable)
@@ -203,7 +212,7 @@ export const useTrackableStore = defineStore('trackables', () => {
   async function markComplete(trackableId: number, notes?: string, amount?: number) {
     const completion: Completion = {
       trackableId,
-      completedAt: new Date(),
+      completedAt: getNow(),
       notes,
       amount
     }

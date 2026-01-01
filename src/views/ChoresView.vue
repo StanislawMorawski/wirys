@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useTrackableStore } from '@/stores/trackable'
 import { db } from '@/db'
+import { getNow } from '@/dev/time'
 import TrackableCard from '@/components/TrackableCard.vue'
 import TrackableForm from '@/components/TrackableForm.vue'
 import HistoryModal from '@/components/HistoryModal.vue'
@@ -79,7 +80,7 @@ async function handleComplete(item: TrackableWithStatus) {
 
 function formatDate(date: Date): string {
   const d = new Date(date)
-  const now = new Date()
+  const now = getNow()
   const diff = now.getTime() - d.getTime()
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
   
