@@ -55,26 +55,27 @@ function calculateExerciseDebt(
   
   // Current period target (today's work, not debt)
   const currentPeriodTarget = targetAmount
-  
+
   // Max allowed includes current period + 1 advance period
   const maxAllowed = (pastPeriodsCount + 2) * targetAmount
-  
+
   // Total completed amount
   const totalCompleted = completions.reduce((sum, c) => sum + (c.amount || 0), 0)
-  
+
   // Debt is only from PAST periods, not current
   const debt = Math.max(0, pastRequired - totalCompleted)
-  
+
   // How much is done for current period (after paying off debt)
   const availableForCurrent = Math.max(0, totalCompleted - pastRequired)
   const currentPeriodDone = Math.min(availableForCurrent, currentPeriodTarget)
-  
-  // Advance amount is anything beyond current period's target
-  const advanceAmount = Math.max(0, availableForCurrent - currentPeriodTarget)
-  
+
+  // Advance amount is anything beyond current period's target but cap to at most one period
+  const rawAdvance = Math.max(0, availableForCurrent - currentPeriodTarget)
+  const advanceAmount = Math.min(rawAdvance, targetAmount)
+
   // Can do advance if current period is done and not maxed out
   const canDoAdvance = debt === 0 && totalCompleted < maxAllowed
-  
+
   return { debt, totalCompleted, canDoAdvance, advanceAmount, currentPeriodTarget, currentPeriodDone }
 }
 
@@ -210,11 +211,38 @@ export const useTrackableStore = defineStore('trackables', () => {
   }
 
   async function markComplete(trackableId: number, notes?: string, amount?: number) {
+    // Enforce allowed amounts for exercises: don't allow more than 1 quota in advance
+    const trackable = await db.trackables.get(trackableId)
+    let finalAmount = amount === undefined ? 1 : amount
+
+    if (trackable?.type === 'exercise') {
+      const completions = await getCompletionsForTrackable(trackableId)
+      const targetAmount = trackable.targetAmount || 0
+      const recurrenceDays = getRecurrenceInDays(trackable.recurrence)
+      const now = getNow()
+      const created = new Date(trackable.createdAt)
+      const daysSinceCreation = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24))
+      const pastPeriodsCount = Math.floor(daysSinceCreation / recurrenceDays)
+      const maxAllowed = (pastPeriodsCount + 2) * targetAmount
+      const totalCompleted = completions.reduce((sum, c) => sum + (c.amount || 0), 0)
+
+      const remainingAllowed = Math.max(0, maxAllowed - totalCompleted)
+
+      if (remainingAllowed <= 0) {
+        // Nothing allowed — already at max (past + current + 1 advance)
+        console.warn('markComplete: no remaining allowed amount for exercise', trackableId)
+        return
+      }
+
+      // Cap the requested amount to what remains
+      finalAmount = Math.min(finalAmount, remainingAllowed)
+    }
+
     const completion: Completion = {
       trackableId,
       completedAt: getNow(),
       notes,
-      amount
+      amount: finalAmount
     }
     await db.completions.add(completion)
     await loadTrackables(currentType.value, currentPersonId.value || undefined)

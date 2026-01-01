@@ -43,10 +43,21 @@ const isTodayDone = computed(() => {
 const statusColor = computed(() => {
   if (props.item.debt && props.item.debt > 0) return 'bg-red-50 border-red-200'
   if (isTodayDone.value) {
+    // If done and no advance, show neutral/gray; if we have advance, show blue
     if (props.item.advanceAmount && props.item.advanceAmount > 0) return 'bg-blue-50 border-blue-200'
-    return 'bg-green-50 border-green-200'
+    return 'bg-gray-50 border-gray-200'
   }
   return 'bg-yellow-50 border-yellow-200' // Todo state
+})
+
+const canQuickComplete = computed(() => {
+  const target = props.item.targetAmount || 0
+  const done = props.item.currentPeriodDone || 0
+  // If today's quota not yet complete, we can complete it
+  if (done < target) return true
+  // Otherwise only if we can do advance and haven't already used the single advance
+  if (props.item.canDoAdvance && (props.item.advanceAmount || 0) < target) return true
+  return false
 })
 
 const debtDisplay = computed(() => {
@@ -75,6 +86,14 @@ const advanceProgressPercent = computed(() => {
   return Math.min(100, Math.round((advance / target) * 100))
 })
 
+// Progress for advance work (as percentage of one period)
+// (Note: advancePercent shows only the advance portion relative to one period)
+// Position for advance bar — anchor at left:0 and set width to advancePercent so small advances are shown proportionally
+const advanceBarPosition = computed(() => {
+  const width = advanceProgressPercent.value
+  return { left: 0, width }
+})
+
 // Debt progress (how much of today's target equivalent is owed)
 const debtPercent = computed(() => {
   const target = props.item.targetAmount || 1
@@ -101,7 +120,7 @@ const debtPercent = computed(() => {
           </span>
           <template v-else-if="isTodayDone">
             <span
-              class="text-xs px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-700"
+              class="text-xs px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-700"
             >
               ✓ Done
             </span>
@@ -169,13 +188,13 @@ const debtPercent = computed(() => {
               <!-- Today's progress (green) -->
               <div 
                 class="h-full bg-green-500 transition-all duration-300 absolute left-0 top-0"
-                :style="{ width: `${todayProgressPercent}%` }"
+                :style="{ width: `${Math.min(todayProgressPercent, 100)}%` }"
               ></div>
-              <!-- Advance progress (blue, after green) -->
+              <!-- Advance progress (blue) -->
               <div 
                 v-if="advanceProgressPercent > 0"
-                class="h-full bg-blue-500 transition-all duration-300 absolute top-0"
-                :style="{ left: `${todayProgressPercent}%`, width: `${Math.min(advanceProgressPercent, 100 - todayProgressPercent)}%` }"
+                class="h-full bg-blue-500 transition-all duration-300 absolute top-0 opacity-90"
+                :style="{ left: `${advanceBarPosition.left}%`, width: `${advanceBarPosition.width}%`, zIndex: 10 }"
               ></div>
             </div>
             <div class="flex justify-between text-xs text-gray-500 mt-1">
@@ -200,7 +219,8 @@ const debtPercent = computed(() => {
       <div class="flex items-center gap-2">
         <button
           @click="emit('completeToday')"
-          class="flex-shrink-0 w-10 h-10 rounded-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center shadow transition-all"
+          :disabled="!canQuickComplete"
+          :class="canQuickComplete ? 'flex-shrink-0 w-10 h-10 rounded-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center shadow transition-all' : 'flex-shrink-0 w-10 h-10 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center shadow transition-all cursor-not-allowed'"
           title="Complete today's quota"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

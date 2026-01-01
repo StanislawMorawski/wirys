@@ -76,10 +76,20 @@ async function handleLogExercise(amount: number, notes?: string) {
 }
 
 async function handleQuickComplete(item: TrackableWithStatus) {
-  // Compute amount needed to complete today's quota
   const target = item.currentPeriodTarget || item.targetAmount || 0
   const done = item.currentPeriodDone || 0
-  const toComplete = Math.max(1, target - done)
+  const currentAdvance = item.advanceAmount || 0
+  let toComplete = 0
+
+  if (done < target) {
+    // finish today's quota
+    toComplete = target - done
+  } else {
+    // today's quota already complete -> add remaining to fill the advance up to one full quota
+    const remainingAdvance = Math.max(0, target - currentAdvance)
+    toComplete = remainingAdvance
+  }
+
   console.log('Quick complete', item.id, toComplete)
   if (item.id !== undefined && toComplete > 0) {
     await store.markComplete(item.id, undefined, toComplete)
