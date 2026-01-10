@@ -245,6 +245,8 @@ export const useTrackableStore = defineStore('trackables', () => {
       amount: finalAmount
     }
     await db.completions.add(completion)
+    // persist lastCompleted timestamp on the trackable
+    await db.trackables.update(trackableId, { lastCompleted: completion.completedAt })
     await loadTrackables(currentType.value, currentPersonId.value || undefined)
   }
 

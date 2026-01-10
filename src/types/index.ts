@@ -17,6 +17,8 @@ export interface Trackable {
   recurrence: Recurrence
   createdAt: Date
   archived: boolean
+  // Persist the last completion timestamp (useful for minimal gist sync)
+  lastCompleted?: Date
   // Exercise-specific fields
   personId?: string
   exerciseUnit?: ExerciseUnit
