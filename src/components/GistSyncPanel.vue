@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { getToken, setToken, getGistId, setGistId, fetchCurrentGistSnapshot, upsertCurrentGist, fetchCurrentMinimalSnapshot, upsertCurrentMinimalGist } from '@/services/gistStorage'
+import { getToken, setToken, getGistId, setGistId, fetchCurrentGistSnapshot, upsertCurrentGist, fetchCurrentMinimalSnapshot, upsertCurrentMinimalGist, setLastSyncedMinimal, minimalFromFullSnapshot } from '@/services/gistStorage'
 import { exportSnapshot, importSnapshot, exportMinimalSnapshot, importMinimalSnapshot } from '@/db/sync'
 
 const tokenInput = ref(getToken() ?? '')
@@ -32,6 +32,9 @@ async function saveToGist() {
       gistIdInput.value = res.id
       gistLink.value = `https://gist.github.com/${res.id}`
     }
+    // update last-synced minimal snapshot
+    const minimal = minimalFromFullSnapshot(snapshot)
+    setLastSyncedMinimal(minimal)
     status.value = 'Saved to gist.'
   } catch (e: any) {
     status.value = `Error: ${e.message}`
@@ -69,6 +72,8 @@ async function saveMinimal() {
       gistIdInput.value = res.id
       gistLink.value = `https://gist.github.com/${res.id}`
     }
+    // Store as last-synced minimal snapshot
+    setLastSyncedMinimal(snapshot)
     status.value = 'Saved minimal snapshot to gist.'
   } catch (e: any) {
     status.value = `Error: ${e.message}`

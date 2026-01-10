@@ -7,9 +7,8 @@ import TrackableCard from '@/components/TrackableCard.vue'
 import TrackableForm from '@/components/TrackableForm.vue'
 import HistoryModal from '@/components/HistoryModal.vue'
 import CalendarGrid from '@/components/CalendarGrid.vue'
-import { exportMinimalSnapshot, importMinimalSnapshot } from '@/db/sync'
-import { fetchCurrentMinimalSnapshot, upsertCurrentMinimalGist, getGistId, setGistId } from '@/services/gistStorage'
-import type { Trackable, TrackableWithStatus, Completion } from '@/types'
+import { mergeWithGist } from '@/db/sync'
+import type { Trackable, TrackableWithStatus, Completion } from '@/types' 
 const store = useTrackableStore()
 
 const showForm = ref(false)
@@ -23,6 +22,20 @@ const dayEntries = ref<any[]>([])
 const editingItem = ref<Trackable | null>(null)
 const historyItem = ref<TrackableWithStatus | null>(null)
 const recentCompletions = ref<(Completion & { trackableName?: string })[]>([])
+const syncing = ref(false)
+
+async function runMergeSync() {
+  syncing.value = true
+  try {
+    await mergeWithGist()
+    await loadRecentHistory()
+    await store.loadTrackables('chore')
+  } catch (e: any) {
+    alert(`Sync error: ${e.message}`)
+  } finally {
+    syncing.value = false
+  }
+}
 
 onMounted(() => {
   store.loadTrackables('chore')
@@ -84,56 +97,7 @@ function openEditForm(item: TrackableWithStatus) {
   showForm.value = true
 }
 
-// Sync menu
-const showSyncMenu = ref(false)
-function toggleSyncMenu() {
-  showSyncMenu.value = !showSyncMenu.value
-}
 
-async function saveMinimalSync() {
-  showSyncMenu.value = false
-  try {
-    const snap = await exportMinimalSnapshot()
-    const res = await upsertCurrentMinimalGist(snap)
-    if (res?.id) setGistId(res.id)
-    alert('Saved minimal snapshot to gist')
-  } catch (e: any) {
-    alert(`Error: ${e.message}`)
-  }
-}
-
-async function loadMinimalReplaceSync() {
-  showSyncMenu.value = false
-  try {
-    const id = getGistId()
-    if (!id) return alert('Set gist ID in Settings first')
-    const snap = await fetchCurrentMinimalSnapshot()
-    if (!snap) return alert('No snapshot found')
-    await importMinimalSnapshot(snap, 'replace')
-    alert('Imported minimal snapshot (replace)')
-    // reload list
-    await loadRecentHistory()
-    await store.loadTrackables('chore')
-  } catch (e: any) {
-    alert(`Error: ${e.message}`)
-  }
-}
-
-async function loadMinimalMergeSync() {
-  showSyncMenu.value = false
-  try {
-    const id = getGistId()
-    if (!id) return alert('Set gist ID in Settings first')
-    const snap = await fetchCurrentMinimalSnapshot()
-    if (!snap) return alert('No snapshot found')
-    await importMinimalSnapshot(snap, 'merge')
-    alert('Imported minimal snapshot (merge)')
-    await loadRecentHistory()
-    await store.loadTrackables('chore')
-  } catch (e: any) {
-    alert(`Error: ${e.message}`)
-  }
-}
 
 function openHistory(item: TrackableWithStatus) {
   historyItem.value = item
@@ -210,23 +174,19 @@ function formatDate(date: Date): string {
             Add
           </button>
 
-          <div class="relative">
-            <button
-              @click="toggleSyncMenu"
-              class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v6h6M20 20v-6h-6" />
-              </svg>
-              Sync
-            </button>
+          <button
+            @click="runMergeSync"
+            :disabled="syncing"
+            class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v6h6M20 20v-6h-6" />
+            </svg>
+            <span v-if="!syncing">Sync</span>
+            <span v-else>Syncing...</span>
+          </button>
 
-            <div v-if="showSyncMenu" class="absolute right-0 mt-2 w-44 bg-white border rounded shadow p-2 z-50">
-              <button @click="saveMinimalSync" class="w-full text-left px-2 py-1 hover:bg-gray-50">Save (minimal)</button>
-              <button @click="loadMinimalReplaceSync" class="w-full text-left px-2 py-1 hover:bg-gray-50">Load (replace)</button>
-              <button @click="loadMinimalMergeSync" class="w-full text-left px-2 py-1 hover:bg-gray-50">Merge</button>
-            </div>
-          </div>
+
         </div>
       </div>
     </div>

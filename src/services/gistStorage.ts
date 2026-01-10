@@ -179,3 +179,16 @@ export async function upsertCurrentGist(snapshot: Snapshot, isPublic = false) {
   if (id) return updateGist(id, snapshot)
   return createGist(snapshot, isPublic)
 }
+
+const LAST_MINIMAL_KEY = 'wirys_last_minimal_snapshot'
+
+export function setLastSyncedMinimal(snapshot: MinimalSnapshot | null) {
+  if (snapshot) localStorage.setItem(LAST_MINIMAL_KEY, JSON.stringify(snapshot))
+  else localStorage.removeItem(LAST_MINIMAL_KEY)
+}
+
+export function getLastSyncedMinimal(): MinimalSnapshot | null {
+  const raw = localStorage.getItem(LAST_MINIMAL_KEY)
+  if (!raw) return null
+  try { return JSON.parse(raw) as MinimalSnapshot } catch { return null }
+}

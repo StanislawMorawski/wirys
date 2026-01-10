@@ -2,7 +2,6 @@
 import { RouterView } from 'vue-router'
 import AppNavigation from '@/components/AppNavigation.vue'
 import DevTimePanel from '@/components/DevTimePanel.vue'
-import GistSyncPanel from '@/components/GistSyncPanel.vue'
 const isDev = import.meta.env.DEV
 </script>
 
@@ -13,6 +12,5 @@ const isDev = import.meta.env.DEV
       <RouterView />
     </main>
     <DevTimePanel v-if="isDev" />
-    <GistSyncPanel />
   </div>
 </template>
