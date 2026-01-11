@@ -4,6 +4,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { resolve } from 'path'
 
 export default defineConfig({
+  // Use VITE_BASE environment variable when building for GitHub Pages
+  base: process.env.VITE_BASE || '/',
   plugins: [
     vue(),
     VitePWA({

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
+    "postbuild": "cp -f dist/index.html dist/404.html || true",
     "preview": "vite preview",
     "check:i18n": "bash scripts/check-i18n.sh"
   },
