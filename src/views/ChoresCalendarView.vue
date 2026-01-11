@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { t } from '@/i18n'
 import CalendarGrid from '@/components/CalendarGrid.vue'
 import { db, getAllCompletions } from '@/db'
 import { getNow } from '@/dev/time'
@@ -41,15 +42,15 @@ onMounted(load)
 
 <template>
   <div>
-    <h1 class="text-2xl font-bold mb-4">📅 Chores Calendar</h1>
+    <h1 class="text-2xl font-bold mb-4">📅 {{ t('chores_calendar') }}</h1>
 
-    <div v-if="loading" class="text-gray-500">Loading...</div>
+    <div v-if="loading" class="text-gray-500">{{ t('loading') }}</div>
     <div v-else>
-      <div class="text-xs text-gray-500 mb-2">Chore completions this month: {{ events.length }}</div>
+      <div class="text-xs text-gray-500 mb-2">{{ t('chore_completions_month').replace('{count}', String(events.length)) }}</div>
       <CalendarGrid :events="events" @dayClick="onDayClick" />
 
       <div v-if="selectedDay" class="mt-4">
-        <div class="font-semibold mb-2">Entries on {{ selectedDay }}</div>
+        <div class="font-semibold mb-2">{{ t('entries_on') }} {{ selectedDay }}</div>
         <ul class="space-y-2">
           <li v-for="e in dayEntries" :key="e.id" class="py-2 px-3 bg-gray-50 rounded">
             <div class="text-sm font-medium">{{ new Date(e.completedAt).toLocaleString() }}</div>

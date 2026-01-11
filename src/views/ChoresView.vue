@@ -8,6 +8,7 @@ import TrackableForm from '@/components/TrackableForm.vue'
 import HistoryModal from '@/components/HistoryModal.vue'
 import CalendarGrid from '@/components/CalendarGrid.vue'
 import { mergeWithGist } from '@/db/sync'
+import { t } from '@/i18n'
 import type { Trackable, TrackableWithStatus, Completion } from '@/types' 
 const store = useTrackableStore()
 
@@ -40,6 +41,16 @@ async function runMergeSync() {
 onMounted(() => {
   store.loadTrackables('chore')
   loadRecentHistory()
+})
+
+import { onBeforeRouteLeave } from 'vue-router'
+
+onBeforeRouteLeave((to, from, next) => {
+  // ensure any floating modals are closed before navigating away
+  showCalendar.value = false
+  showForm.value = false
+  showHistory.value = false
+  next()
 })
 
 async function loadRecentHistory() {
@@ -151,7 +162,7 @@ function formatDate(date: Date): string {
 <template>
   <div>
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">🏠 Chores</h1>
+      <h1 class="text-2xl font-bold text-gray-900">{{ t('chores_title') }}</h1>
       <div class="flex gap-2">
         <button
           @click="openCalendar"
@@ -160,10 +171,10 @@ function formatDate(date: Date): string {
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3M3 11h18M5 21h14a2 2 0 002-2V11a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
           </svg>
-          Calendar
+          {{ t('calendar') }}
         </button>
 
-        <div class="flex items-center gap-2 relative">
+        <div class="flex items-center gap-2">
           <button
             @click="openAddForm"
             class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
@@ -171,7 +182,7 @@ function formatDate(date: Date): string {
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
-            Add
+            {{ t('add') }}
           </button>
 
           <button
@@ -182,30 +193,27 @@ function formatDate(date: Date): string {
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v6h6M20 20v-6h-6" />
             </svg>
-            <span v-if="!syncing">Sync</span>
-            <span v-else>Syncing...</span>
+            <span v-if="!syncing">{{ t('sync') }}</span>
+            <span v-else>{{ t('syncing') }}</span>
           </button>
-
-
         </div>
       </div>
     </div>
 
     <div v-if="store.loading" class="text-center py-12 text-gray-500">
-      Loading...
+      {{ t('loading') }}
     </div>
 
     <div v-else-if="store.sortedTrackables.length === 0" class="text-center py-12">
       <div class="text-6xl mb-4">🧹</div>
-      <p class="text-gray-500 mb-4">No chores yet. Add your first one!</p>
+      <p class="text-gray-500 mb-4">{{ t('history_no_entries') }}</p>
       <button
         @click="openAddForm"
         class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
       >
-        Add Chore
+        {{ t('add_chore') }}
       </button>
     </div>
-
     <template v-else>
       <div class="space-y-4">
         <TrackableCard
@@ -231,20 +239,13 @@ function formatDate(date: Date): string {
           >
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
           </svg>
-          Recent History ({{ recentCompletions.length }})
+          {{ t('recent_history') }} ({{ recentCompletions.length }})
         </button>
-        
-        <div v-if="showRecentHistory" class="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-          <div
-            v-for="completion in recentCompletions"
-            :key="completion.id"
-            class="flex items-center justify-between px-4 py-3"
-          >
-            <div class="flex items-center gap-3">
-              <span class="text-green-500">✓</span>
-              <span class="font-medium text-gray-900">{{ completion.trackableName }}</span>
-            </div>
-            <span class="text-sm text-gray-500">{{ formatDate(completion.completedAt) }}</span>
+
+        <div v-if="showRecentHistory" class="space-y-2">
+          <div v-for="completion in recentCompletions" :key="completion.id" class="py-2 px-3 bg-gray-50 rounded">
+            <div class="text-sm font-medium">{{ completion.trackableName }}</div>
+            <div class="text-xs text-gray-500">{{ formatDate(new Date(completion.completedAt)) }}</div>
           </div>
         </div>
       </div>
@@ -272,17 +273,17 @@ function formatDate(date: Date): string {
           <div class="absolute inset-0 bg-black/50" @click="closeCalendar"></div>
           <div class="relative bg-white w-full sm:max-w-2xl sm:rounded-xl rounded-t-xl p-6 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between mb-4">
-              <h2 class="text-xl font-bold text-gray-900">Chores Calendar</h2>
-              <button @click="closeCalendar" class="text-gray-400 hover:text-gray-600">Close</button>
+              <h2 class="text-xl font-bold text-gray-900">{{ t('chores_calendar') }}</h2>
+              <button @click="closeCalendar" class="text-gray-400 hover:text-gray-600">{{ t('close') }}</button>
             </div>
 
-            <div v-if="calLoading" class="py-8 text-center text-gray-500">Loading...</div>
+            <div v-if="calLoading" class="py-8 text-center text-gray-500">{{ t('loading') }}</div>
             <div v-else>
-              <div class="text-xs text-gray-500 mb-2">Chore completions this month: {{ calendarEvents.length }}</div>
+              <div class="text-xs text-gray-500 mb-2">{{ t('chore_completions_month').replace('{count}', String(calendarEvents.length)) }}</div>
               <CalendarGrid :events="calendarEvents" @dayClick="onCalDayClick" />
 
               <div v-if="selectedCalDay" class="mt-4">
-                <div class="font-semibold mb-2">Entries on {{ selectedCalDay }}</div>
+                <div class="font-semibold mb-2">{{ t('entries_on') }} {{ selectedCalDay }}</div>
                 <ul class="space-y-2">
                   <li v-for="e in dayEntries" :key="e.id" class="py-2 px-3 bg-gray-50 rounded">
                     <div class="text-sm font-medium">{{ new Date(e.completedAt).toLocaleString() }}</div>
@@ -291,7 +292,7 @@ function formatDate(date: Date): string {
                 </ul>
               </div>
 
-              <div v-if="calendarEvents.length === 0" class="text-center text-gray-500 py-6">No entries in this month.</div>
+              <div v-if="calendarEvents.length === 0" class="text-center text-gray-500 py-6">{{ t('no_entries_month') }}</div>
             </div>
           </div>
         </div>

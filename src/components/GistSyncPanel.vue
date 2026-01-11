@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { getToken, setToken, getGistId, setGistId, fetchCurrentGistSnapshot, upsertCurrentGist, fetchCurrentMinimalSnapshot, upsertCurrentMinimalGist, setLastSyncedMinimal, minimalFromFullSnapshot } from '@/services/gistStorage'
 import { exportSnapshot, importSnapshot, exportMinimalSnapshot, importMinimalSnapshot } from '@/db/sync'
+import { t } from '@/i18n'
 
 const tokenInput = ref(getToken() ?? '')
 const gistIdInput = ref(getGistId() ?? '')
@@ -121,39 +122,40 @@ async function loadMinimalMerge() {
 
 <template>
   <div class="p-3 text-sm w-full">
-    <div class="font-semibold mb-2">Gist Sync</div>
+    <div class="font-semibold mb-2">{{ t('gist_sync_title') }}</div>
 
-    <div class="text-xs text-gray-600 mb-2">Store synced metadata in a GitHub Gist file.</div>
+    <div class="text-xs text-gray-600 mb-2">{{ t('gist_sync_desc') }}</div>
 
     <label class="text-xs">GitHub Token (scopes: gist)</label>
     <input v-model="tokenInput" type="password" class="w-full px-2 py-1 border rounded mb-2" />
     <div class="flex gap-2 mb-2">
-      <button @click="saveToken" class="flex-1 px-2 py-1 bg-primary-600 text-white rounded">Save token</button>
-      <button @click="tokenInput=''; saveToken()" class="px-2 py-1 border rounded">Clear</button>
+      <button @click="saveToken" class="flex-1 px-2 py-1 bg-primary-600 text-white rounded">{{ t('save_token') }}</button>
+      <button @click="tokenInput=''; saveToken()" class="px-2 py-1 border rounded">{{ t('clear') }}</button>
     </div>
 
-    <label class="text-xs">Gist ID (leave empty to create)</label>
+    <label class="text-xs">{{ t('gist_id') }}</label>
     <div class="flex gap-2 mb-2">
       <input v-model="gistIdInput" type="text" class="flex-1 px-2 py-1 border rounded" />
-      <button @click="saveGistId" class="px-3 py-1 border rounded">Save ID</button>
+      <button @click="saveGistId" class="px-3 py-1 border rounded">{{ t('save_id') }}</button>
     </div>
 
     <div class="flex gap-2 mb-2">
-      <button @click="saveToGist" :disabled="isLoading" class="flex-1 px-2 py-1 bg-primary-600 text-white rounded">Save full snapshot</button>
-      <button @click="loadFromGist" :disabled="isLoading" class="px-2 py-1 border rounded">Load full snapshot</button>
+      <button @click="saveToGist" :disabled="isLoading" class="flex-1 px-2 py-1 bg-primary-600 text-white rounded">{{ t('save_full') }}</button>
+      <button @click="loadFromGist" :disabled="isLoading" class="px-2 py-1 border rounded">{{ t('load_full') }}</button>
     </div>
 
-    <div class="text-xs text-gray-500 mb-2">Minimal sync (chores only):</div>
+    <div class="text-xs text-gray-500 mb-2">{{ t('minimal_title') }}</div>
     <div class="flex gap-2 mb-2">
-      <button @click="saveMinimal" :disabled="isLoading" class="flex-1 px-2 py-1 bg-green-600 text-white rounded">Save minimal (last completions)</button>
-      <button @click="loadMinimalReplace" :disabled="isLoading" class="px-2 py-1 border rounded">Load (replace)</button>
-      <button @click="loadMinimalMerge" :disabled="isLoading" class="px-2 py-1 border rounded">Load (merge)</button>
+      <button @click="saveMinimal" :disabled="isLoading" class="flex-1 px-2 py-1 bg-green-600 text-white rounded">{{ t('save_minimal') }}</button>
+      <button @click="loadMinimalReplace" :disabled="isLoading" class="px-2 py-1 border rounded">{{ t('load_replace') }}</button>
+      <button @click="loadMinimalMerge" :disabled="isLoading" class="px-2 py-1 border rounded">{{ t('load_merge') }}</button>
     </div>
 
-    <div class="text-xs text-gray-500">Status: <span class="font-medium">{{ status }}</span></div>
+    <div class="text-xs text-gray-500">{{ t('status') }} <span class="font-medium">{{ status }}</span></div>
 
-    <div v-if="gistLink" class="text-xs mt-2"><a :href="gistLink" target="_blank" class="underline">Open gist</a></div>
+    <div v-if="gistLink" class="text-xs mt-2"><a :href="gistLink" target="_blank" class="underline">{{ t('open_gist') }}</a></div>
 
-    <div class="mt-2 text-xs text-gray-500">Tip: create a token at <a class="underline" href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a> with the <code>gist</code> scope.</div>
+    <div class="mt-2 text-xs text-gray-500">{{ t('tip_tokens') }}</div>
+    <div class="mt-2 text-xs text-gray-500 text-amber-600">Note: If you still see source-map warnings from dependencies in the console, those are harmless (they come from pre-bundled dependency maps). You can safely ignore them or disable source maps in your browser devtools.</div>
   </div>
 </template>

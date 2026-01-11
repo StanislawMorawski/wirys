@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TrackableWithStatus } from '@/types'
 import { computed } from 'vue'
+import { t } from '@/i18n'
 
 const props = defineProps<{
   item: TrackableWithStatus
@@ -14,7 +15,7 @@ const emit = defineEmits<{
 }>()
 
 function formatDate(date: Date | undefined): string {
-  if (!date) return 'Never'
+  if (!date) return t('never')
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
@@ -26,11 +27,13 @@ function formatDate(date: Date | undefined): string {
 function formatRecurrence(item: TrackableWithStatus): string {
   const { every, unit } = item.recurrence
   const target = item.targetAmount || 0
-  const unitLabel = item.exerciseUnit || 'reps'
-  if (every === 1) {
-    return `${target} ${unitLabel} / ${unit.slice(0, -1)}`
-  }
-  return `${target} ${unitLabel} / ${every} ${unit}`
+  // Translate the unit labels (e.g., 'reps', 'km') using i18n keys like unit_reps, unit_km
+  const exerciseUnitKey = `unit_${item.exerciseUnit || 'reps'}`
+  const exerciseUnitLabel = t(exerciseUnitKey)
+  const pluralUnitKey = `unit_${unit}`
+  const singularUnitKey = `unit_${unit.slice(0, -1)}_singular`
+  const periodLabel = every === 1 ? t(singularUnitKey) : t(pluralUnitKey)
+  return `${target} ${exerciseUnitLabel} / ${every === 1 ? periodLabel : `${every} ${periodLabel}`}`
 }
 
 // Is today's quota met?
@@ -62,14 +65,14 @@ const canQuickComplete = computed(() => {
 
 const debtDisplay = computed(() => {
   const debt = props.item.debt || 0
-  const unit = props.item.exerciseUnit || 'reps'
-  return `${debt} ${unit}`
+  const unitKey = `unit_${props.item.exerciseUnit || 'reps'}`
+  return `${debt} ${t(unitKey)}`
 })
 
 const advanceDisplay = computed(() => {
   const advance = props.item.advanceAmount || 0
-  const unit = props.item.exerciseUnit || 'reps'
-  return `${advance} ${unit}`
+  const unitKey = `unit_${props.item.exerciseUnit || 'reps'}`
+  return `${advance} ${t(unitKey)}`
 })
 
 // Progress for today's work (what portion of today's target is done)
@@ -116,26 +119,26 @@ const debtPercent = computed(() => {
             v-if="item.debt && item.debt > 0"
             class="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700"
           >
-            Debt: {{ debtDisplay }}
+            {{ t('debt_label') }} {{ debtDisplay }}
           </span>
           <template v-else-if="isTodayDone">
             <span
               class="text-xs px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-700"
             >
-              ✓ Done
+              {{ t('done_label') }}
             </span>
             <span
               v-if="item.advanceAmount && item.advanceAmount > 0"
               class="text-xs px-2 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700"
             >
-              +{{ advanceDisplay }} ahead
+              +{{ advanceDisplay }} {{ t('ahead_label') }}
             </span>
           </template>
           <span
             v-else
             class="text-xs px-2 py-0.5 rounded-full font-medium bg-yellow-100 text-yellow-700"
           >
-            Todo
+            {{ t('todo_label') }}
           </span>
         </div>
         
@@ -150,7 +153,7 @@ const debtPercent = computed(() => {
           </span>
           <span class="flex items-center gap-1">
             <span>📊</span>
-            {{ item.totalCompleted || 0 }} {{ item.exerciseUnit || 'reps' }} total
+            {{ item.totalCompleted || 0 }} {{ t('unit_' + (item.exerciseUnit || 'reps')) }} {{ t('total_label') }}
           </span>
         </div>
         
@@ -165,7 +168,7 @@ const debtPercent = computed(() => {
               ></div>
             </div>
             <div class="text-xs text-red-600 mt-1">
-              {{ item.debt }} {{ item.exerciseUnit || 'reps' }} debt from past periods
+              {{ item.debt }} {{ t('unit_' + (item.exerciseUnit || 'reps')) }} {{ t('debt_from_past') }}
             </div>
           </template>
           
@@ -178,7 +181,7 @@ const debtPercent = computed(() => {
               ></div>
             </div>
             <div class="text-xs text-gray-500 mt-1">
-              Today: {{ item.currentPeriodDone || 0 }}/{{ item.currentPeriodTarget || item.targetAmount }} {{ item.exerciseUnit || 'reps' }}
+              {{ t('today_label') }} {{ item.currentPeriodDone || 0 }}/{{ item.currentPeriodTarget || item.targetAmount }} {{ t('unit_' + (item.exerciseUnit || 'reps')) }}
             </div>
           </template>
           
@@ -199,13 +202,13 @@ const debtPercent = computed(() => {
             </div>
             <div class="flex justify-between text-xs text-gray-500 mt-1">
               <span>
-                Today: {{ item.currentPeriodDone || 0 }}/{{ item.currentPeriodTarget || item.targetAmount }} {{ item.exerciseUnit || 'reps' }}
+                {{ t('today_label') }} {{ item.currentPeriodDone || 0 }}/{{ item.currentPeriodTarget || item.targetAmount }} {{ t('unit_' + (item.exerciseUnit || 'reps')) }}
               </span>
               <span v-if="advanceProgressPercent > 0" class="text-blue-600">
-                +{{ item.advanceAmount }} ahead
+                +{{ item.advanceAmount }} {{ t('ahead_label') }}
               </span>
               <span v-else-if="item.canDoAdvance && todayProgressPercent >= 100" class="text-blue-600">
-                Can do +1 day ahead
+                {{ t('all_caught_up') }}
               </span>
             </div>
           </template>
@@ -221,7 +224,7 @@ const debtPercent = computed(() => {
           @click="emit('completeToday')"
           :disabled="!canQuickComplete"
           :class="canQuickComplete ? 'flex-shrink-0 w-10 h-10 rounded-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center shadow transition-all' : 'flex-shrink-0 w-10 h-10 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center shadow transition-all cursor-not-allowed'"
-          title="Complete today's quota"
+          :title="t('completeToday')"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -231,7 +234,7 @@ const debtPercent = computed(() => {
         <button
           @click="emit('logExercise')"
           class="flex-shrink-0 w-14 h-14 rounded-full bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white flex items-center justify-center shadow-lg transition-all touch-action-manipulation"
-          title="Log exercise"
+          :title="t('logExercise')"
         >
           <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -245,14 +248,14 @@ const debtPercent = computed(() => {
         @click="emit('viewHistory')"
         class="text-sm text-gray-600 hover:text-primary-600 transition-colors"
       >
-        View history
+        {{ t('view_history') }}
       </button>
       <span class="text-gray-300">|</span>
       <button
         @click="emit('edit')"
         class="text-sm text-gray-600 hover:text-primary-600 transition-colors"
       >
-        Edit
+        {{ t('edit') }}
       </button>
     </div>
   </div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
+import { t } from '@/i18n'
 import type { Completion, TrackableWithStatus } from '@/types'
 import { useTrackableStore } from '@/stores/trackable'
 import { deleteCompletion } from '@/db'
@@ -64,6 +65,24 @@ watch(() => props.show, (show) => {
   }
 })
 
+// Close modal on global navigation to avoid Teleport/Transition parentNode issues
+import { onMounted, onBeforeUnmount } from 'vue'
+
+function handleNavigate() {
+  // Defer close to next tick to avoid update-time DOM issues
+  setTimeout(() => emit('close'), 0)
+}
+
+onMounted(() => {
+  window.addEventListener('wirys:navigate', handleNavigate)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('wirys:navigate', handleNavigate)
+})
+
+
+
 // Also clear state if the item changes while open
 watch(() => props.item, (it) => {
   if (props.show && it) loadHistory()
@@ -87,10 +106,10 @@ function toDateKey(date: Date | string) {
 
 async function handleDeleteEntry(completionId: number | undefined) {
   if (completionId === undefined) {
-    alert('Cannot delete: entry has no ID')
+    alert(t('delete_no_id'))
     return
   }
-  if (!confirm('Delete this history entry?')) {
+  if (!confirm(t('delete_entry_confirm'))) {
     return
   }
   try {
@@ -99,7 +118,7 @@ async function handleDeleteEntry(completionId: number | undefined) {
     emit('updated')
   } catch (e) {
     console.error('Failed to delete:', e)
-    alert('Failed to delete entry: ' + String(e))
+    alert(t('delete_entry_failed') + String(e))
   }
 }
 </script>
@@ -119,7 +138,7 @@ async function handleDeleteEntry(completionId: number | undefined) {
         <div class="relative bg-white w-full sm:max-w-md sm:rounded-xl rounded-t-xl p-6 max-h-[90vh] overflow-y-auto">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-xl font-bold text-gray-900">
-              {{ item?.name }} - History
+              {{ item?.name }} - {{ t('history_title') }}
             </h2>
             <div class="flex items-center gap-2">
               <button
@@ -127,13 +146,13 @@ async function handleDeleteEntry(completionId: number | undefined) {
                 "
                 @click="view = 'list'"
               >
-                List
+                {{ t('history_list') }}
               </button>
               <button
                 :class="view === 'calendar' ? 'bg-primary-600 text-white px-3 py-1 rounded' : 'px-3 py-1 rounded border'"
                 @click="view = 'calendar'"
               >
-                Calendar
+                {{ t('history_calendar') }}
               </button>
               <button
                 @click="emit('close')"
@@ -147,11 +166,11 @@ async function handleDeleteEntry(completionId: number | undefined) {
           </div>
           
           <div v-if="loading" class="py-8 text-center text-gray-500">
-            Loading...
+            {{ t('loading') }}
           </div>
           
           <div v-else-if="completions.length === 0 && view === 'list'" class="py-8 text-center text-gray-500">
-            No history yet. Mark this item as complete to start tracking!
+            {{ t('history_no_entries') }}
           </div>
 
           <div v-if="view === 'list'">
@@ -180,7 +199,7 @@ async function handleDeleteEntry(completionId: number | undefined) {
                 <button
                   @click="handleDeleteEntry(completion.id)"
                   class="text-gray-400 hover:text-red-500 p-1 flex-shrink-0"
-                  title="Delete entry"
+                  :title="t('delete_entry')"
                 >
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -191,11 +210,11 @@ async function handleDeleteEntry(completionId: number | undefined) {
           </div>
 
           <div v-if="view === 'calendar' && item">
-              <div class="text-xs text-gray-500 mb-2">Events this item: {{ calendarEvents.length }} • Year: {{ calendarYear }} • Month: {{ calendarMonth }}</div>
+              <div class="text-xs text-gray-500 mb-2">{{ t('events_this_item').replace('{count}', String(calendarEvents.length)).replace('{year}', String(calendarYear)).replace('{month}', String(calendarMonth)) }}</div>
               <CalendarGrid :events="calendarEvents" :highlight-dates="highlightDates" :year="calendarYear" :month="calendarMonth" @dayClick="selectedDay = $event" />
 
               <div v-if="selectedDay" class="mt-4">
-                <div class="font-semibold mb-2">Entries on {{ selectedDay }}</div>
+                <div class="font-semibold mb-2">{{ t('entries_on') }} {{ selectedCalDay }}</div>
                 <ul class="space-y-2">
                   <li v-for="c in completions.filter(x => toDateKey(x.completedAt) === selectedDay)" :key="c.id" class="py-2 px-3 bg-gray-50 rounded">
                     <div class="flex justify-between items-center">
@@ -204,13 +223,13 @@ async function handleDeleteEntry(completionId: number | undefined) {
                         <div v-if="c.amount" class="text-xs text-gray-600">{{ c.amount }} {{ item?.exerciseUnit }}</div>
                         <div v-if="c.notes" class="text-xs text-gray-600">{{ c.notes }}</div>
                       </div>
-                      <button @click="handleDeleteEntry(c.id)" class="text-red-500">Delete</button>
+                      <button @click="handleDeleteEntry(c.id)" class="text-red-500">{{ t('delete') }}</button>
                     </div>
                   </li>
                 </ul>
               </div>
 
-              <div v-if="(calendarEvents || []).length === 0" class="text-center text-gray-500 py-6">No entries in this month.</div>
+              <div v-if="(calendarEvents || []).length === 0" class="text-center text-gray-500 py-6">{{ t('no_entries_month') }}</div>
             </div>
           <div class="mt-4 pt-4 border-t text-sm text-gray-500 text-center">
             <template v-if="item?.type === 'exercise'">

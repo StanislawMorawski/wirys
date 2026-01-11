@@ -55,11 +55,38 @@ export const usePeopleStore = defineStore('people', () => {
     }
   }
 
+  function addPerson(name: string, emoji = '🙂') {
+    const id = `person_${Date.now()}`
+    people.value.push({ id, name, emoji })
+    savePeople()
+    return id
+  }
+
+  function deletePerson(id: string) {
+    // Prevent deleting the last remaining person
+    if (people.value.length <= 1) return false
+
+    const index = people.value.findIndex(p => p.id === id)
+    if (index === -1) return false
+
+    people.value.splice(index, 1)
+
+    if (selectedPersonId.value === id) {
+      selectedPersonId.value = people.value[0]?.id || ''
+      saveSelectedPerson()
+    }
+
+    savePeople()
+    return true
+  }
+
   return {
     people,
     selectedPersonId,
     selectedPerson,
     selectPerson,
-    updatePerson
+    updatePerson,
+    addPerson,
+    deletePerson
   }
 })

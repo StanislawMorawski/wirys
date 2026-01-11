@@ -2,6 +2,7 @@
 import type { TrackableWithStatus } from '@/types'
 import { computed } from 'vue'
 import { getNow } from '@/dev/time'
+import { t } from '@/i18n'
 
 const props = defineProps<{
   item: TrackableWithStatus
@@ -14,29 +15,31 @@ const emit = defineEmits<{
 }>()
 
 function formatDate(date: Date | undefined): string {
-  if (!date) return 'Never'
+  if (!date) return t('never')
 
   const now = getNow()
   const d = new Date(date)
   const diff = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24)) // full days difference
 
-  if (diff === 0) return 'Today'
-  if (diff === 1) return 'Yesterday'
-  if (diff < 7) return `${diff} days ago`
+  if (diff === 0) return t('today')
+  if (diff === 1) return t('yesterday')
+  if (diff < 7) return `${diff} ${t('days_ago')}`
   if (diff < 30) {
     const weeks = Math.floor(diff / 7)
-    return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`
+    return `${weeks} ${t('weeks_ago')}`
   }
   const months = Math.floor(diff / 30)
-  return `${months} ${months === 1 ? 'month' : 'months'} ago`
+  return `${months} ${t('months_ago')}`
 }
 
 function formatRecurrence(item: TrackableWithStatus): string {
   const { every, unit } = item.recurrence
+  const pluralKey = `unit_${unit}`
+  const singularKey = `unit_${unit.slice(0, -1)}_singular`
   if (every === 1) {
-    return `Every ${unit.slice(0, -1)}`
+    return `${t('every')} ${t(singularKey)}`
   }
-  return `Every ${every} ${unit}`
+  return `${t('every')} ${every} ${t(pluralKey)}`
 }
 
 const statusColor = computed(() => {
@@ -48,13 +51,13 @@ const statusColor = computed(() => {
 const statusBadge = computed(() => {
   if (props.item.isOverdue) {
     return {
-      text: `${props.item.daysOverdue}d overdue`,
+      text: `${props.item.daysOverdue} ${t('overdue')}`,
       class: 'bg-red-100 text-red-700'
     }
   }
   if (!props.item.lastCompleted) {
     return {
-      text: 'Never done',
+      text: t('never_done'),
       class: 'bg-yellow-100 text-yellow-700'
     }
   }
@@ -91,19 +94,19 @@ const statusBadge = computed(() => {
           </span>
           <span class="flex items-center gap-1">
             <span>✓</span>
-            {{ item.completionCount }} times
+            {{ item.completionCount }} {{ t('times') }}
           </span>
         </div>
         
         <div class="text-sm text-gray-500 mt-1">
-          Last done: {{ formatDate(item.lastCompleted) }}
+          {{ t('last_done') }} {{ formatDate(item.lastCompleted) }}
         </div>
       </div>
       
       <button
         @click="emit('complete')"
         class="flex-shrink-0 w-14 h-14 rounded-full bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white flex items-center justify-center shadow-lg transition-all touch-action-manipulation"
-        title="Mark as done"
+        :title="t('mark_done')"
       >
         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
@@ -116,14 +119,14 @@ const statusBadge = computed(() => {
         @click="emit('viewHistory')"
         class="text-sm text-gray-600 hover:text-primary-600 transition-colors"
       >
-        View history
+        {{ t('view_history') }}
       </button>
       <span class="text-gray-300">|</span>
       <button
         @click="emit('edit')"
         class="text-sm text-gray-600 hover:text-primary-600 transition-colors"
       >
-        Edit
+        {{ t('edit') }}
       </button>
     </div>
   </div>

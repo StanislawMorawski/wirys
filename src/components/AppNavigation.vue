@@ -4,11 +4,13 @@ import { computed } from 'vue'
 
 const route = useRoute()
 
+import { t } from '@/i18n'
+
 const navItems = [
-  { name: 'Chores', path: '/', icon: '🏠' },
-  { name: 'Exercises', path: '/exercises', icon: '💪' },
-  { name: 'Groceries', path: '/groceries', icon: '🛒' },
-  { name: 'Settings', path: '/settings', icon: '⚙️' }
+  { name: () => t('nav_chores'), path: '/', icon: '🏠' },
+  { name: () => t('nav_exercises'), path: '/exercises', icon: '💪' },
+  { name: () => t('nav_groceries'), path: '/groceries', icon: '🛒' },
+  { name: () => t('nav_settings'), path: '/settings', icon: '⚙️' }
 ]
 
 const isActive = (path: string) => {
@@ -27,7 +29,7 @@ const isActive = (path: string) => {
         :class="isActive(item.path) ? 'text-primary-600' : 'text-gray-500 hover:text-gray-700'"
       >
         <span class="text-xl mb-1">{{ item.icon }}</span>
-        <span class="text-xs font-medium">{{ item.name }}</span>
+        <span class="text-xs font-medium">{{ typeof item.name === 'function' ? item.name() : item.name }}</span>
       </RouterLink>
     </div>
   </nav>

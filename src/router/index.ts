@@ -30,4 +30,13 @@ const router = createRouter({
   ]
 })
 
+// Notify the app when navigation happens so floating modals can close cleanly
+router.afterEach(() => {
+  try {
+    window.dispatchEvent(new CustomEvent('wirys:navigate'))
+  } catch (e) {
+    // ignore
+  }
+})
+
 export default router

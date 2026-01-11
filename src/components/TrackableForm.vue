@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue'
+import { t } from '@/i18n'
 import type { Trackable, TrackableType, RecurrenceUnit, ExerciseUnit } from '@/types'
 
 const props = defineProps<{
@@ -78,6 +79,20 @@ function handleDelete() {
     }
   }
 }
+
+// Close on navigation
+function handleNavigate() {
+  // Defer closing so it doesn't interfere with the current router patch/render cycle
+  setTimeout(() => emit('close'), 0)
+}
+
+onMounted(() => {
+  window.addEventListener('wirys:navigate', handleNavigate)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('wirys:navigate', handleNavigate)
+})
 </script>
 
 <template>
@@ -94,13 +109,13 @@ function handleDelete() {
         
         <div class="relative bg-white w-full sm:max-w-md sm:rounded-xl rounded-t-xl p-6 max-h-[90vh] overflow-y-auto">
           <h2 class="text-xl font-bold text-gray-900 mb-4">
-            {{ isEditing ? `Edit ${typeLabel}` : `Add ${typeLabel}` }}
+            {{ isEditing ? `${t('save')} ${typeLabel}` : `${t('add')} ${typeLabel}` }}
           </h2>
           
           <form @submit.prevent="handleSubmit" class="space-y-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">
-                Name *
+                {{ t('field_name') }}
               </label>
               <input
                 v-model="name"
@@ -113,7 +128,7 @@ function handleDelete() {
             
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">
-                Description
+                {{ t('field_description') }}
               </label>
               <textarea
                 v-model="description"
@@ -125,7 +140,7 @@ function handleDelete() {
             
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">
-                Repeat every
+                {{ t('field_repeat') }}
               </label>
               <div class="flex gap-2">
                 <input
@@ -139,9 +154,9 @@ function handleDelete() {
                   v-model="recurrenceUnit"
                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 >
-                  <option value="days">Days</option>
-                  <option value="weeks">Weeks</option>
-                  <option value="months">Months</option>
+                  <option value="days">{{ t('unit_days') }}</option>
+                  <option value="weeks">{{ t('unit_weeks') }}</option>
+                  <option value="months">{{ t('unit_months') }}</option>
                 </select>
               </div>
             </div>
@@ -163,11 +178,11 @@ function handleDelete() {
                     v-model="exerciseUnit"
                     class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   >
-                    <option value="reps">Reps</option>
-                    <option value="km">Kilometers</option>
-                    <option value="steps">Steps</option>
-                    <option value="minutes">Minutes</option>
-                    <option value="sets">Sets</option>
+                    <option value="reps">{{ t('unit_reps') }}</option>
+                    <option value="km">{{ t('unit_km') }}</option>
+                    <option value="steps">{{ t('unit_steps') }}</option>
+                    <option value="minutes">{{ t('unit_minutes') }}</option>
+                    <option value="sets">{{ t('unit_sets') }}</option>
                   </select>
                 </div>
                 <p class="text-xs text-gray-500 mt-1">

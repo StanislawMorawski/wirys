@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue'
+import { t } from '@/i18n'
 import type { TrackableWithStatus } from '@/types'
 
 const props = defineProps<{
@@ -43,6 +44,20 @@ const quickAmounts = computed(() => {
     Math.round(target * 2)
   ].filter((v, i, arr) => arr.indexOf(v) === i && v > 0)
 })
+
+// Close on navigation
+function handleNavigate() {
+  // Defer closing so it doesn't interfere with the current router patch/render cycle
+  setTimeout(() => emit('close'), 0)
+}
+
+onMounted(() => {
+  window.addEventListener('wirys:navigate', handleNavigate)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('wirys:navigate', handleNavigate)
+})
 </script>
 
 <template>
@@ -59,31 +74,31 @@ const quickAmounts = computed(() => {
         
         <div class="relative bg-white w-full sm:max-w-md sm:rounded-xl rounded-t-xl p-6 max-h-[90vh] overflow-y-auto">
           <h2 class="text-xl font-bold text-gray-900 mb-2">
-            Log {{ item?.name }}
+            {{ t('log_title') }} {{ item?.name }}
           </h2>
           
           <div v-if="debtAmount > 0" class="mb-4 p-3 bg-red-50 rounded-lg">
             <p class="text-sm text-red-700">
-              <span class="font-medium">Debt to pay off:</span> {{ debtAmount }} {{ unitLabel }}
+              <span class="font-medium">{{ t('debt_to_pay') }}</span> {{ debtAmount }} {{ unitLabel }}
             </p>
           </div>
           
           <div v-else-if="canDoAdvance" class="mb-4 p-3 bg-green-50 rounded-lg">
             <p class="text-sm text-green-700">
-              ✓ All caught up! You can do <span class="font-medium">1 day in advance</span>.
+              {{ t('all_caught_up') }}
             </p>
           </div>
           
           <div v-else class="mb-4 p-3 bg-blue-50 rounded-lg">
             <p class="text-sm text-blue-700">
-              🎉 You've already done tomorrow's exercise! Take a rest.
+              {{ t('already_done') }}
             </p>
           </div>
           
           <form @submit.prevent="handleSubmit" class="space-y-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">
-                Amount ({{ unitLabel }})
+                {{ t('amount_label') }} ({{ unitLabel }})
               </label>
               <input
                 v-model.number="amount"
@@ -113,7 +128,7 @@ const quickAmounts = computed(() => {
             
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">
-                Notes (optional)
+                {{ t('notes_optional') }}
               </label>
               <input
                 v-model="notes"
@@ -129,13 +144,13 @@ const quickAmounts = computed(() => {
                 @click="emit('close')"
                 class="flex-1 px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium"
               >
-                Cancel
+                {{ t('cancel') }}
               </button>
               <button
                 type="submit"
                 class="flex-1 px-4 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors font-medium"
               >
-                Log {{ amount }} {{ unitLabel }}
+                {{ t('log_button') }} {{ amount }} {{ unitLabel }}
               </button>
             </div>
           </form>

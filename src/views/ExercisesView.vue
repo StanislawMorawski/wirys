@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
+import { t } from '@/i18n'
 import { useTrackableStore } from '@/stores/trackable'
 import { usePeopleStore } from '@/stores/people'
 import ExerciseCard from '@/components/ExerciseCard.vue'
@@ -104,7 +105,7 @@ const totalDebt = () => {
 <template>
   <div>
     <div class="flex items-center justify-between mb-4">
-      <h1 class="text-2xl font-bold text-gray-900">💪 Exercises</h1>
+      <h1 class="text-2xl font-bold text-gray-900">💪 {{ t('exercises_title') }}</h1>
       <button
         @click="openAddForm"
         class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
@@ -112,26 +113,13 @@ const totalDebt = () => {
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
         </svg>
-        Add
+        {{ t('add') }}
       </button>
     </div>
 
-    <!-- Person selector -->
-    <div class="mb-6">
-      <div class="flex gap-2">
-        <button
-          v-for="person in peopleStore.people"
-          :key="person.id"
-          @click="peopleStore.selectPerson(person.id)"
-          class="flex-1 py-3 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2"
-          :class="peopleStore.selectedPersonId === person.id 
-            ? 'bg-primary-600 text-white shadow-lg' 
-            : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'"
-        >
-          <span class="text-xl">{{ person.emoji }}</span>
-          <span>{{ person.name }}</span>
-        </button>
-      </div>
+    <!-- Current person info (selection moved to Settings) -->
+    <div class="mb-4 text-sm text-gray-500">
+      {{ t('people_showing_for').replace('{name}', peopleStore.selectedPerson?.name || '') }}
     </div>
 
     <!-- Total debt summary -->
@@ -139,24 +127,24 @@ const totalDebt = () => {
       <div class="flex items-center gap-2 text-red-700">
         <span class="text-2xl">⚠️</span>
         <div>
-          <p class="font-semibold">Exercise debt to pay off</p>
-          <p class="text-sm">You have pending exercises - time to catch up!</p>
+          <p class="font-semibold">{{ t('exercise_debt_title') }}</p>
+          <p class="text-sm">{{ t('exercise_debt_sub') }}</p>
         </div>
       </div>
     </div>
 
     <div v-if="store.loading" class="text-center py-12 text-gray-500">
-      Loading...
+      {{ t('loading') }}
     </div>
 
     <div v-else-if="store.sortedTrackables.length === 0" class="text-center py-12">
       <div class="text-6xl mb-4">🏃</div>
-      <p class="text-gray-500 mb-4">No exercises yet for {{ peopleStore.selectedPerson?.name }}.</p>
+      <p class="text-gray-500 mb-4">{{ t('exercises_empty').replace('{name}', peopleStore.selectedPerson?.name || '') }}</p>
       <button
         @click="openAddForm"
         class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
       >
-        Add Exercise
+        {{ t('add_exercise') }}
       </button>
     </div>
 
