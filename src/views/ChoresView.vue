@@ -147,6 +147,13 @@ async function handleDetailCompletePast(daysAgo: number) {
   }
 }
 
+async function handleDetailDelete() {
+  if (detailItem.value && confirm(`Delete "${detailItem.value.name}"?`)) {
+    await store.deleteTrackable(detailItem.value.id!)
+    showDetail.value = false
+  }
+}
+
 async function handleSave(data: Omit<Trackable, 'id' | 'createdAt' | 'archived'>) {
   if (editingItem.value?.id) {
     await store.updateTrackable(editingItem.value.id, data)
@@ -319,6 +326,7 @@ async function handleReschedule(item: TrackableWithStatus, days: number) {
       @view-history="handleDetailHistory"
       @reschedule="handleDetailReschedule"
       @complete-past="handleDetailCompletePast"
+      @delete="handleDetailDelete"
     />
   </div>
 </template>

@@ -209,7 +209,11 @@ const dicts: Record<Locale, Record<string, string>> = {
     complete_expense: 'Complete',
     affordable: 'Affordable',
     completed: 'Completed',
-    undo: 'Undo'
+    undo: 'Undo',
+    adjust_budget: 'Adjust Budget',
+    quick_add: 'Quick add',
+    custom_amount: 'Custom amount',
+    enter_amount: 'Enter amount'
 
   },
   pl: {
@@ -404,7 +408,11 @@ const dicts: Record<Locale, Record<string, string>> = {
     complete_expense: 'Zrealizuj',
     affordable: 'Stać cię',
     completed: 'Zrealizowane',
-    undo: 'Cofnij'
+    undo: 'Cofnij',
+    adjust_budget: 'Dostosuj budżet',
+    quick_add: 'Szybkie dodanie',
+    custom_amount: 'Własna kwota',
+    enter_amount: 'Wprowadź kwotę'
   }
 }
 

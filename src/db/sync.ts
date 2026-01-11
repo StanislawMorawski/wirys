@@ -154,31 +154,40 @@ export async function mergeWithGist(): Promise<void> {
   // Get tracked local changes before importing
   const localChanges = changeTracker.getChanges()
   
-  if (localChanges.length === 0) {
-    console.log('No local changes to sync')
-    return
-  }
-
-  console.log(`Syncing ${localChanges.length} local changes...`)
+  console.log(`Syncing with ${localChanges.length} local changes...`)
+  console.log('Local changes:', localChanges)
 
   // Step 1: Import cloud state (this overwrites local data)
+  console.log('Importing cloud state...')
   await importSnapshot(remote)
 
-  // Step 2: Apply local changes on top of cloud state
-  await applyChanges(localChanges)
-
-  // Step 3: Export merged state and push back to cloud
-  const merged = await exportSnapshot()
-  await upsertCurrentGist(merged)
-
-  // Step 4: Clear tracked changes after successful sync
-  changeTracker.clearChanges()
+  // Step 2: Apply local changes on top of cloud state (if any)
+  if (localChanges.length > 0) {
+    console.log('Applying local changes...')
+    await applyChanges(localChanges)
+    
+    // Step 3: Export merged state and push back to cloud
+    console.log('Exporting merged state...')
+    const merged = await exportSnapshot()
+    console.log('Pushing to cloud...')
+    await upsertCurrentGist(merged)
+    
+    // Step 4: Clear tracked changes after successful sync
+    console.log('Clearing local changes...')
+    changeTracker.clearChanges()
+    
+    // Update last-synced minimal snapshot
+    const newMinimal = minimalFromFullSnapshot(merged)
+    setLastSyncedMinimal(newMinimal)
+  } else {
+    console.log('No local changes, just updating from cloud')
+    // Update last-synced minimal snapshot even when no local changes
+    const current = await exportSnapshot()
+    const newMinimal = minimalFromFullSnapshot(current)
+    setLastSyncedMinimal(newMinimal)
+  }
   
   console.log('Sync complete!')
-
-  // Update last-synced minimal snapshot
-  const newMinimal = minimalFromFullSnapshot(merged)
-  setLastSyncedMinimal(newMinimal)
 }
 
 /**

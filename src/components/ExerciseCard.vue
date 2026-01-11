@@ -12,6 +12,7 @@ const emit = defineEmits<{
   completeToday: []
   edit: []
   viewHistory: []
+  click: []
 }>()
 
 function formatRecurrence(item: TrackableWithStatus): string {
@@ -100,7 +101,7 @@ const debtPercent = computed(() => {
   <div
     class="rounded-xl border p-4 shadow-sm transition-all cursor-pointer hover:shadow-md"
     :class="statusColor"
-    @click="emit('viewHistory')"
+    @click="emit('click')"
   >
     <div class="flex items-start justify-between gap-3">
       <div class="flex-1 min-w-0">

@@ -21,6 +21,10 @@ const draggedOverIndex = ref<number | null>(null)
 const showBudgetEdit = ref(false)
 const budgetInput = ref(settingsStore.budget)
 
+const showBudgetPopup = ref(false)
+const customBudgetAmount = ref<number | null>(null)
+const predefinedAmounts = [100, 200, 500, 1000]
+
 const completedTotal = computed(() => {
   return expenses.value.filter(e => e.completed).reduce((sum, e) => sum + e.cost, 0)
 })
@@ -166,6 +170,23 @@ function saveBudgetChange() {
   showBudgetEdit.value = false
 }
 
+function openBudgetPopup() {
+  customBudgetAmount.value = null
+  showBudgetPopup.value = true
+}
+
+function addPredefinedAmount(amount: number) {
+  settingsStore.adjustBudget(amount)
+  showBudgetPopup.value = false
+}
+
+function addCustomAmount() {
+  if (customBudgetAmount.value !== null && customBudgetAmount.value !== 0) {
+    settingsStore.adjustBudget(customBudgetAmount.value)
+    showBudgetPopup.value = false
+  }
+}
+
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -265,17 +286,10 @@ function formatCurrency(amount: number) {
               </button>
               <button
                 v-if="!showBudgetEdit"
-                @click="settingsStore.adjustBudget(100)"
+                @click="openBudgetPopup"
                 class="text-sm px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700"
               >
                 +
-              </button>
-              <button
-                v-if="!showBudgetEdit"
-                @click="settingsStore.adjustBudget(-100)"
-                class="text-sm px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
-              >
-                -
               </button>
             </div>
           </div>
@@ -361,5 +375,67 @@ function formatCurrency(amount: number) {
         <p class="text-sm mt-2">{{ t('add_expense') }}</p>
       </div>
     </div>
+
+    <!-- Budget Adjustment Popup -->
+    <Teleport to="body">
+      <div 
+        v-if="showBudgetPopup"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        @click.self="showBudgetPopup = false"
+      >
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-bold text-gray-900">{{ t('adjust_budget') }}</h2>
+            <button
+              @click="showBudgetPopup = false"
+              class="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="space-y-4">
+            <!-- Predefined amounts -->
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-gray-700">{{ t('quick_add') }}</label>
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  v-for="amount in predefinedAmounts"
+                  :key="amount"
+                  @click="addPredefinedAmount(amount)"
+                  class="px-4 py-3 bg-green-50 text-green-700 rounded-xl hover:bg-green-100 transition-colors font-medium text-lg"
+                >
+                  +{{ formatCurrency(amount) }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Custom amount -->
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-gray-700">{{ t('custom_amount') }}</label>
+              <div class="flex gap-2">
+                <input
+                  v-model.number="customBudgetAmount"
+                  type="number"
+                  step="0.01"
+                  :placeholder="t('enter_amount')"
+                  class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  @keyup.enter="addCustomAmount"
+                />
+                <button
+                  @click="addCustomAmount"
+                  :disabled="customBudgetAmount === null || customBudgetAmount === 0"
+                  class="px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 disabled:bg-gray-300 transition-colors font-medium"
+                >
+                  {{ t('add') }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

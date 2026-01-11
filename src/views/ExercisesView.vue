@@ -7,6 +7,7 @@ import ExerciseCard from '@/components/ExerciseCard.vue'
 import TrackableForm from '@/components/TrackableForm.vue'
 import HistoryModal from '@/components/HistoryModal.vue'
 import LogExerciseModal from '@/components/LogExerciseModal.vue'
+import ExerciseDetailModal from '@/components/ExerciseDetailModal.vue'
 import SyncButton from '@/components/SyncButton.vue'
 import type { Trackable, TrackableWithStatus } from '@/types'
 
@@ -16,9 +17,11 @@ const peopleStore = usePeopleStore()
 const showForm = ref(false)
 const showHistory = ref(false)
 const showLogModal = ref(false)
+const showDetail = ref(false)
 const editingItem = ref<Trackable | null>(null)
 const historyItem = ref<TrackableWithStatus | null>(null)
 const logItem = ref<TrackableWithStatus | null>(null)
+const detailItem = ref<TrackableWithStatus | null>(null)
 
 function handleSynced() {
   store.loadTrackables('exercise', peopleStore.selectedPersonId)
@@ -45,6 +48,33 @@ function openEditForm(item: TrackableWithStatus) {
 function openHistory(item: TrackableWithStatus) {
   historyItem.value = item
   showHistory.value = true
+  showDetail.value = false
+}
+
+function openDetail(item: TrackableWithStatus) {
+  detailItem.value = item
+  showDetail.value = true
+}
+
+function handleDetailEdit() {
+  if (detailItem.value) {
+    editingItem.value = detailItem.value as Trackable
+    showDetail.value = false
+    showForm.value = true
+  }
+}
+
+function handleDetailHistory() {
+  if (detailItem.value) {
+    openHistory(detailItem.value)
+  }
+}
+
+async function handleDetailDelete() {
+  if (detailItem.value && confirm(`Delete "${detailItem.value.name}"?`)) {
+    await store.deleteTrackable(detailItem.value.id!)
+    showDetail.value = false
+  }
 }
 
 function openLogModal(item: TrackableWithStatus) {
@@ -162,6 +192,7 @@ const totalDebt = () => {
         v-for="item in store.sortedTrackables"
         :key="item.id"
         :item="item"
+        @click="openDetail(item)"
         @log-exercise="openLogModal(item)"
         @complete-today="handleQuickComplete(item)"
         @edit="openEditForm(item)"
@@ -191,6 +222,16 @@ const totalDebt = () => {
       :item="logItem"
       @close="showLogModal = false"
       @submit="handleLogExercise"
+    />
+
+    <!-- Exercise Detail Modal -->
+    <ExerciseDetailModal
+      v-if="showDetail && detailItem"
+      :item="detailItem"
+      @close="showDetail = false"
+      @edit="handleDetailEdit"
+      @view-history="handleDetailHistory"
+      @delete="handleDetailDelete"
     />
   </div>
 </template>
