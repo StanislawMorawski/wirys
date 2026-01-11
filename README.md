@@ -1,4 +1,4 @@
-# Home Tracker PWA
+# Wirys PWA
 
 A Progressive Web App for tracking home chores, exercises, and more.
 

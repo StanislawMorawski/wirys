@@ -12,7 +12,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "Home Tracker PWA",
+  "description": "Wirys PWA",
   "dependencies": {
     "dexie": "^4.2.1",
     "pinia": "^3.0.4",

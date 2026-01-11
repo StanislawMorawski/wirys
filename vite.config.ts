@@ -12,8 +12,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.svg'],
       manifest: {
-        name: 'Home Tracker',
-        short_name: 'Tracker',
+        name: 'Wirys',
+        short_name: 'Wirys',
         description: 'Track home chores, exercises, and more',
         theme_color: '#4f46e5',
         background_color: '#f3f4f6',
