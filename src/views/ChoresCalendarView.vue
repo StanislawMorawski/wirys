@@ -45,7 +45,6 @@ onMounted(load)
 
     <div v-if="loading" class="text-gray-500">{{ t('loading') }}</div>
     <div v-else>
-      <div class="text-xs text-gray-500 mb-2">{{ t('chore_completions_month').replace('{count}', String(events.length)) }}</div>
       <CalendarGrid :events="events" @dayClick="onDayClick" />
 
       <div v-if="selectedDay" class="mt-4">

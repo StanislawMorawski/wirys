@@ -87,6 +87,7 @@ export const usePeopleStore = defineStore('people', () => {
     selectPerson,
     updatePerson,
     addPerson,
-    deletePerson
+    deletePerson,
+    savePeople
   }
 })

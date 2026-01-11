@@ -21,6 +21,7 @@ const dicts: Record<Locale, Record<string, string>> = {
     nav_chores: 'Chores',
     nav_exercises: 'Exercises',
     nav_groceries: 'Groceries',
+    nav_expenses: 'Expenses',
     nav_settings: 'Settings',
     chores_title: '🏠 Chores',
     add: 'Add',
@@ -45,10 +46,21 @@ const dicts: Record<Locale, Record<string, string>> = {
     gist_sync_title: 'Gist Sync',
     gist_sync_desc: 'Store synced metadata in a GitHub Gist file.',
     open_gist: 'Open gist',
+    github_token: 'GitHub Token',
+    token_placeholder: 'Enter your GitHub token',
+    token_saved: 'Token saved',
+    gist_id_label: 'Gist ID',
+    gist_id_placeholder: 'Leave empty for auto-detect',
+    gist_id_saved: 'Gist ID saved',
+    auto_detect: 'Auto-Detect',
+    sync_now: 'Sync Now',
+    searching_gists: 'Searching for wirys gist...',
+    gist_detected: 'Gist detected!',
+    no_gist_found: 'No wirys gist found',
+    sync_complete: 'Sync complete!',
 
     loading: 'Loading...',
 
-    recent_history: 'Recent History',
     close: 'Close',
     chores_calendar: 'Chores Calendar',
     // History / modals
@@ -87,6 +99,14 @@ const dicts: Record<Locale, Record<string, string>> = {
     weeks_ago: 'weeks ago',
     months_ago: 'months ago',
     times: 'times',
+    times_this_month: 'times this month',
+    times_this_year: 'times this year',
+    days_overdue_short: 'd overdue',
+    due_tomorrow: 'Due tomorrow',
+    due_in: 'Due in',
+    days: 'days',
+    this_month: 'this month',
+    this_year: 'this year',
     last_done: 'Last done:',
     mark_done: 'Mark as done',
     complete: 'Complete',
@@ -144,11 +164,11 @@ const dicts: Record<Locale, Record<string, string>> = {
     select: 'Select',
 
     // Calendar / misc
-    chore_completions_month: 'Chore completions this month: {count}',
     no_entries_month: 'No entries in this month.',
     events_this_item: 'Events this item: {count} • Year: {year} • Month: {month}',
     delete: 'Delete',
     language: 'Language',
+    currency: 'Preferred Currency',
     lang_en: 'English',
     lang_pl: 'Polski',
 
@@ -157,13 +177,46 @@ const dicts: Record<Locale, Record<string, string>> = {
     unit_km: 'Kilometers',
     unit_steps: 'Steps',
     unit_minutes: 'Minutes',
-    unit_sets: 'Sets'
+    unit_sets: 'Sets',
+
+    // User creation
+    create_user: 'Create User',
+    username_label: 'Username',
+    select_avatar: 'Select Avatar',
+    
+    // Chore types
+    chore_type_singular: 'One-time',
+    chore_type_repeating: 'Repeating',
+    make_repeating: 'Make this a repeating chore',
+    days_until_due: 'Days until due',
+    days_until_due_help: 'Leave empty to use repeat interval for repeating chores, 0 for one-time chores',
+    due_today: 'Due today',
+    reschedule: 'Reschedule',
+    reschedule_next_due: 'Reschedule next due date',
+    days_from_now: 'Days from now',
+    complete_past: 'Mark as done in past',
+    complete_past_days_ago: 'How many days ago?',
+    
+    // Expenses
+    expenses_title: '💰 Expenses',
+    add_expense: 'Add Expense',
+    expense_name: 'Name',
+    expense_cost: 'Cost',
+    expense_description: 'Description (optional)',
+    total_cost: 'Total',
+    delete_expense: 'Delete',
+    budget: 'Budget',
+    complete_expense: 'Complete',
+    affordable: 'Affordable',
+    completed: 'Completed',
+    undo: 'Undo'
 
   },
   pl: {
     nav_chores: 'Obowiązki',
     nav_exercises: 'Ćwiczenia',
     nav_groceries: 'Zakupy',
+    nav_expenses: 'Wydatki',
     nav_settings: 'Ustawienia',
     chores_title: '🏠 Obowiązki',
     add: 'Dodaj',
@@ -188,7 +241,23 @@ const dicts: Record<Locale, Record<string, string>> = {
     gist_sync_title: 'Synchronizacja Gist',
     gist_sync_desc: 'Przechowuj metadane synchronizacji w pliku GitHub Gist.',
     open_gist: 'Otwórz gist',
+    github_token: 'Token GitHub',
+    token_placeholder: 'Wprowadź token GitHub',
+    token_saved: 'Token zapisany',
+    gist_id_label: 'ID Gist',
+    gist_id_placeholder: 'Zostaw puste dla automatycznego wykrycia',
+    gist_id_saved: 'ID Gist zapisane',
+    auto_detect: 'Wykryj automatycznie',
+    sync_now: 'Synchronizuj teraz',
+    searching_gists: 'Szukam gista wirys...',
+    gist_detected: 'Gist wykryty!',
+    no_gist_found: 'Nie znaleziono gista wirys',
+    sync_complete: 'Synchronizacja zakończona!',
 
+    loading: 'Ładowanie...',
+
+    close: 'Zamknij',
+    chores_calendar: 'Kalendarz obowiązków',
     // History / modals
     history_title: 'Historia',
     history_no_entries: 'Brak historii. Oznacz zadanie jako wykonane aby rozpocząć śledzenie!',
@@ -196,6 +265,7 @@ const dicts: Record<Locale, Record<string, string>> = {
     history_calendar: 'Kalendarz',
     entries_on: 'Wpisy z',
     delete_entry_confirm: 'Usunąć ten wpis z historii?',
+    delete_no_id: 'Nie można usunąć: wpis nie ma ID',
     delete_entry_failed: 'Nie udało się usunąć wpisu: ',
     delete_entry: 'Usuń wpis',
 
@@ -224,6 +294,14 @@ const dicts: Record<Locale, Record<string, string>> = {
     weeks_ago: 'tygodni temu',
     months_ago: 'miesięcy temu',
     times: 'razy',
+    times_this_month: 'razy w tym miesiącu',
+    times_this_year: 'razy w tym roku',
+    days_overdue_short: 'd przeterminowane',
+    due_tomorrow: 'Jutro',
+    due_in: 'Za',
+    days: 'dni',
+    this_month: 'w tym miesiącu',
+    this_year: 'w tym roku',
     last_done: 'Ostatnio:',
     mark_done: 'Oznacz jako wykonane',
     complete: 'Complete',
@@ -266,6 +344,7 @@ const dicts: Record<Locale, Record<string, string>> = {
     placeholder_add_item: 'Dodaj przedmiot...',
     placeholder_qty: 'Ilość',
     done_section: 'Gotowe',
+    clear_done: 'Usuń zaznaczone',
 
     // People / users
     people_title: 'Użytkownicy',
@@ -280,11 +359,11 @@ const dicts: Record<Locale, Record<string, string>> = {
     select: 'Wybierz',
 
     // Calendar / misc
-    chore_completions_month: 'Wykonania w tym miesiącu: {count}',
     no_entries_month: 'Brak wpisów w tym miesiącu.',
     events_this_item: 'Wydarzenia tego elementu: {count} • Rok: {year} • Miesiąc: {month}',
     delete: 'Usuń',
     language: 'Język',
+    currency: 'Preferowana waluta',
     lang_en: 'Angielski',
     lang_pl: 'Polski',
 
@@ -293,7 +372,39 @@ const dicts: Record<Locale, Record<string, string>> = {
     unit_km: 'Kilometry',
     unit_steps: 'Kroki',
     unit_minutes: 'Minuty',
-    unit_sets: 'Serie'
+    unit_sets: 'Serie',
+
+    // User creation
+    create_user: 'Utwórz użytkownika',
+    username_label: 'Nazwa użytkownika',
+    select_avatar: 'Wybierz awatar',
+    
+    // Chore types
+    chore_type_singular: 'Jednorazowe',
+    chore_type_repeating: 'Powtarzające się',
+    make_repeating: 'Powtarzaj',
+    days_until_due: 'Dni do wykonania',
+    days_until_due_help: 'Pozostaw puste aby użyć interwału powtarzania dla powtarzających się, 0 dla jednorazowych',
+    due_today: 'Do wykonania dzisiaj',
+    reschedule: 'Przełóż',
+    reschedule_next_due: 'Przełóż następny termin',
+    days_from_now: 'Dni od teraz',
+    complete_past: 'Oznacz jako wykonane w przeszłości',
+    complete_past_days_ago: 'Ile dni temu?',
+    
+    // Expenses
+    expenses_title: '💰 Wydatki',
+    add_expense: 'Dodaj wydatek',
+    expense_name: 'Nazwa',
+    expense_cost: 'Koszt',
+    expense_description: 'Opis (opcjonalny)',
+    total_cost: 'Suma',
+    delete_expense: 'Usuń',
+    budget: 'Budżet',
+    complete_expense: 'Zrealizuj',
+    affordable: 'Stać cię',
+    completed: 'Zrealizowane',
+    undo: 'Cofnij'
   }
 }
 

@@ -2,7 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { db, getTrackablesByType, getCompletionsForTrackable, getLastCompletion } from '@/db'
 import { getNow, offsetMs } from '@/dev/time'
-import type { Trackable, Completion, TrackableWithStatus, TrackableType, Recurrence } from '@/types' 
+import type { Trackable, Completion, TrackableWithStatus, TrackableType, Recurrence } from '@/types'
+import { changeTracker } from '@/db/changes' 
 
 function calculateNextDue(lastCompleted: Date | undefined, recurrence: Recurrence, createdAt: Date): Date {
   const baseDate = lastCompleted || createdAt
@@ -93,19 +94,38 @@ export const useTrackableStore = defineStore('trackables', () => {
         const bDebt = b.debt || 0
         if (aDebt !== bDebt) return bDebt - aDebt
       }
-      // Overdue items first, then by days overdue
-      if (a.isOverdue && !b.isOverdue) return -1
-      if (!a.isOverdue && b.isOverdue) return 1
-      if (a.isOverdue && b.isOverdue) {
-        return b.daysOverdue - a.daysOverdue
+      
+      // For chores, sort by priority: overdue > due today > singular (all) > future
+      if (a.type === 'chore' && b.type === 'chore') {
+        // Calculate if due today
+        const now = getNow()
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        
+        const aDueToday = a.nextDue ? new Date(a.nextDue.getFullYear(), a.nextDue.getMonth(), a.nextDue.getDate()).getTime() === today.getTime() : false
+        const bDueToday = b.nextDue ? new Date(b.nextDue.getFullYear(), b.nextDue.getMonth(), b.nextDue.getDate()).getTime() === today.getTime() : false
+        
+        const aOverdue = a.daysOverdue > 0
+        const bOverdue = b.daysOverdue > 0
+        
+        const aSingular = a.isRepeating === false
+        const bSingular = b.isRepeating === false
+        
+        // Priority: overdue > due today > all singular (completed and uncompleted) > future
+        if (aOverdue && !bOverdue) return -1
+        if (!aOverdue && bOverdue) return 1
+        if (aDueToday && !bDueToday) return -1
+        if (!aDueToday && bDueToday) return 1
+        if (aSingular && !bSingular) return -1
+        if (!aSingular && bSingular) return 1
+        
+        // Within same priority, sort by next due date
+        if (a.nextDue && b.nextDue) {
+          return a.nextDue.getTime() - b.nextDue.getTime()
+        }
+        if (a.nextDue && !b.nextDue) return -1
+        if (!a.nextDue && b.nextDue) return 1
       }
-      // Never done items next
-      if (!a.lastCompleted && b.lastCompleted) return -1
-      if (a.lastCompleted && !b.lastCompleted) return 1
-      // Then by next due date
-      if (a.nextDue && b.nextDue) {
-        return a.nextDue.getTime() - b.nextDue.getTime()
-      }
+      
       return 0
     })
   })
@@ -123,13 +143,49 @@ export const useTrackableStore = defineStore('trackables', () => {
         items = items.filter(t => t.personId === personId)
       }
       
+      // Auto-archive completed singular chores that are more than 1 day old
+      if (type === 'chore') {
+        const now = getNow()
+        const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+        
+        for (const item of items) {
+          if (item.isRepeating === false && item.lastCompleted) {
+            const lastCompletedDate = new Date(item.lastCompleted)
+            // Only archive if completed AND the due date has passed by more than a day
+            // This prevents archiving if the chore was unchecked
+            const completions = await db.completions.where('trackableId').equals(item.id!).toArray()
+            if (completions.length > 0 && lastCompletedDate < oneDayAgo && !item.archived) {
+              await db.trackables.update(item.id!, { archived: true })
+            }
+          }
+        }
+        
+        // Reload after auto-archiving
+        items = await getTrackablesByType(type)
+      }
+      
       const withStatus: TrackableWithStatus[] = await Promise.all(
         items.map(async (t) => {
           const lastCompletion = await getLastCompletion(t.id!)
           const completions = await getCompletionsForTrackable(t.id!)
           const lastCompleted = lastCompletion?.completedAt
-          const nextDue = calculateNextDue(lastCompleted, t.recurrence, t.createdAt)
-          const daysOverdue = getDaysOverdue(nextDue)
+          
+          let nextDue: Date
+          let daysOverdue = 0
+          
+          // For chores with custom nextDueDate, use that
+          if (type === 'chore' && t.nextDueDate) {
+            nextDue = new Date(t.nextDueDate)
+          } else {
+            nextDue = calculateNextDue(lastCompleted, t.recurrence, t.createdAt)
+          }
+          
+          // For singular chores, don't calculate overdue if already completed
+          if (type === 'chore' && t.isRepeating === false && lastCompleted) {
+            daysOverdue = 0
+          } else {
+            daysOverdue = getDaysOverdue(nextDue)
+          }
           
           // Calculate debt for exercises
           let debt = 0
@@ -138,6 +194,9 @@ export const useTrackableStore = defineStore('trackables', () => {
           let advanceAmount = 0
           let currentPeriodTarget = 0
           let currentPeriodDone = 0
+          let monthlyCompletions = 0
+          let yearlyCompletions = 0
+          
           if (type === 'exercise') {
             const debtInfo = calculateExerciseDebt(t, completions)
             debt = debtInfo.debt
@@ -146,6 +205,25 @@ export const useTrackableStore = defineStore('trackables', () => {
             advanceAmount = debtInfo.advanceAmount
             currentPeriodTarget = debtInfo.currentPeriodTarget
             currentPeriodDone = debtInfo.currentPeriodDone
+            
+            // Calculate monthly and yearly stats (total amounts, not just count)
+            const now = getNow()
+            const thisMonth = now.getMonth()
+            const thisYear = now.getFullYear()
+            
+            monthlyCompletions = completions
+              .filter(c => {
+                const d = new Date(c.completedAt)
+                return d.getMonth() === thisMonth && d.getFullYear() === thisYear
+              })
+              .reduce((sum, c) => sum + (c.amount || 0), 0)
+            
+            yearlyCompletions = completions
+              .filter(c => {
+                const d = new Date(c.completedAt)
+                return d.getFullYear() === thisYear
+              })
+              .reduce((sum, c) => sum + (c.amount || 0), 0)
           }
           
           return {
@@ -160,7 +238,9 @@ export const useTrackableStore = defineStore('trackables', () => {
             canDoAdvance,
             advanceAmount,
             currentPeriodTarget,
-            currentPeriodDone
+            currentPeriodDone,
+            monthlyCompletions,
+            yearlyCompletions
           }
         })
       )
@@ -179,17 +259,47 @@ export const useTrackableStore = defineStore('trackables', () => {
   })
 
   async function addTrackable(data: Omit<Trackable, 'id' | 'createdAt' | 'archived'>) {
+    const now = getNow()
     const trackable: Trackable = {
       ...data,
-      createdAt: getNow(),
+      createdAt: now,
       archived: false
     }
-    await db.trackables.add(trackable)
+    
+    // Set defaults for chores
+    if (data.type === 'chore') {
+      if (data.isRepeating === undefined) {
+        trackable.isRepeating = false
+      }
+      
+      // If nextDueDate not set and we have daysUntilDue, calculate it
+      if (!trackable.nextDueDate && data.daysUntilDue !== undefined) {
+        const nextDue = new Date(now)
+        nextDue.setDate(nextDue.getDate() + data.daysUntilDue)
+        trackable.nextDueDate = nextDue
+      } else if (!trackable.nextDueDate && trackable.isRepeating) {
+        // For repeating chores without explicit due date, use recurrence interval
+        trackable.nextDueDate = calculateNextDue(undefined, trackable.recurrence, now)
+      } else if (!trackable.nextDueDate) {
+        // For singular chores without explicit due date, default to today
+        trackable.nextDueDate = now
+      }
+    }
+    
+    const id = await db.trackables.add(trackable)
+    const added = await db.trackables.get(id)
+    if (added) {
+      changeTracker.trackAddOrUpdate('trackable', id, added)
+    }
     await loadTrackables(currentType.value, currentPersonId.value || undefined)
   }
 
   async function updateTrackable(id: number, data: Partial<Trackable>) {
     await db.trackables.update(id, data)
+    const updated = await db.trackables.get(id)
+    if (updated) {
+      changeTracker.trackAddOrUpdate('trackable', id, updated)
+    }
     await loadTrackables(currentType.value, currentPersonId.value || undefined)
   }
 
@@ -200,6 +310,7 @@ export const useTrackableStore = defineStore('trackables', () => {
         const deleted = await db.completions.where('trackableId').equals(id).delete()
         console.log('Deleted completions:', deleted)
         await db.trackables.delete(id)
+        changeTracker.trackDelete('trackable', id)
         console.log('Deleted trackable')
       })
       await loadTrackables(currentType.value, currentPersonId.value || undefined)
@@ -211,10 +322,29 @@ export const useTrackableStore = defineStore('trackables', () => {
   }
 
   async function markComplete(trackableId: number, notes?: string, amount?: number) {
-    // Enforce allowed amounts for exercises: don't allow more than 1 quota in advance
     const trackable = await db.trackables.get(trackableId)
     let finalAmount = amount === undefined ? 1 : amount
 
+    // For repeating chores, check if already completed today
+    if (trackable?.type === 'chore' && trackable.isRepeating !== false) {
+      const completions = await getCompletionsForTrackable(trackableId)
+      const now = getNow()
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      
+      // Check if there's already a completion today
+      const completedToday = completions.some(c => {
+        const completedDate = new Date(c.completedAt)
+        const completedDay = new Date(completedDate.getFullYear(), completedDate.getMonth(), completedDate.getDate())
+        return completedDay.getTime() === today.getTime()
+      })
+      
+      if (completedToday) {
+        console.warn('markComplete: repeating chore already completed today', trackableId)
+        return
+      }
+    }
+
+    // Enforce allowed amounts for exercises: don't allow more than 1 quota in advance
     if (trackable?.type === 'exercise') {
       const completions = await getCompletionsForTrackable(trackableId)
       const targetAmount = trackable.targetAmount || 0
@@ -244,9 +374,34 @@ export const useTrackableStore = defineStore('trackables', () => {
       notes,
       amount: finalAmount
     }
-    await db.completions.add(completion)
-    // persist lastCompleted timestamp on the trackable
-    await db.trackables.update(trackableId, { lastCompleted: completion.completedAt })
+    const completionId = await db.completions.add(completion)
+    const added = await db.completions.get(completionId)
+    if (added) {
+      changeTracker.trackAddOrUpdate('completion', completionId, added)
+    }
+    
+    // For repeating chores, store the previous nextDueDate and recalculate new one
+    if (trackable?.type === 'chore' && trackable.isRepeating !== false) {
+      const prevNextDueDate = trackable.nextDueDate
+      const nextDue = calculateNextDue(completion.completedAt, trackable.recurrence, trackable.createdAt)
+      await db.trackables.update(trackableId, { 
+        lastCompleted: completion.completedAt,
+        nextDueDate: nextDue,
+        previousNextDueDate: prevNextDueDate
+      })
+      const updated = await db.trackables.get(trackableId)
+      if (updated) {
+        changeTracker.trackAddOrUpdate('trackable', trackableId, updated)
+      }
+    } else {
+      // For exercises and singular chores, just persist lastCompleted
+      await db.trackables.update(trackableId, { lastCompleted: completion.completedAt })
+      const updated = await db.trackables.get(trackableId)
+      if (updated) {
+        changeTracker.trackAddOrUpdate('trackable', trackableId, updated)
+      }
+    }
+    
     await loadTrackables(currentType.value, currentPersonId.value || undefined)
   }
 
@@ -256,6 +411,147 @@ export const useTrackableStore = defineStore('trackables', () => {
 
   async function deleteCompletion(id: number) {
     await db.completions.delete(id)
+    changeTracker.trackDelete('completion', id)
+    await loadTrackables(currentType.value, currentPersonId.value || undefined)
+  }
+
+  async function uncompleteTrackable(trackableId: number) {
+    const trackable = await db.trackables.get(trackableId)
+    
+    // Find the most recent completion
+    const completions = await db.completions
+      .where('trackableId')
+      .equals(trackableId)
+      .reverse()
+      .sortBy('completedAt')
+    
+    if (completions.length > 0) {
+      const lastCompletion = completions[0]
+      const now = getNow()
+      const completedDate = new Date(lastCompletion.completedAt)
+      
+      // One-time tasks can always be undone
+      const isOneTime = trackable?.type === 'chore' && trackable.isRepeating === false
+      
+      if (isOneTime) {
+        // Delete the completion regardless of when it was done
+        if (lastCompletion.id) {
+          await deleteCompletion(lastCompletion.id)
+          
+          // Update trackable's lastCompleted to previous completion
+          const remaining = await db.completions
+            .where('trackableId')
+            .equals(trackableId)
+            .reverse()
+            .sortBy('completedAt')
+          
+          if (remaining.length > 0) {
+            await db.trackables.update(trackableId, { lastCompleted: remaining[0].completedAt })
+          } else {
+            await db.trackables.update(trackableId, { lastCompleted: undefined })
+          }
+        }
+      } else {
+        // For repeating tasks and exercises, check if completion was done today
+        const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        const completedDay = new Date(completedDate.getFullYear(), completedDate.getMonth(), completedDate.getDate())
+        const isSameDay = nowDay.getTime() === completedDay.getTime()
+        
+        // Only delete if it was done today
+        if (isSameDay && lastCompletion.id) {
+          await deleteCompletion(lastCompletion.id)
+          
+          // Update trackable's lastCompleted to previous completion
+          const remaining = await db.completions
+            .where('trackableId')
+            .equals(trackableId)
+            .reverse()
+            .sortBy('completedAt')
+          
+          // For repeating chores, restore the previous nextDueDate that was cached
+          if (trackable?.type === 'chore' && trackable.isRepeating !== false) {
+            if (remaining.length > 0) {
+              const newLastCompleted = remaining[0].completedAt
+              // Restore the previousNextDueDate if it was stored
+              const restoredNextDue = trackable.previousNextDueDate || calculateNextDue(newLastCompleted, trackable.recurrence, trackable.createdAt)
+              await db.trackables.update(trackableId, { 
+                lastCompleted: newLastCompleted,
+                nextDueDate: restoredNextDue,
+                previousNextDueDate: undefined
+              })
+            } else {
+              // No completions left, restore the previousNextDueDate if it was stored
+              const restoredNextDue = trackable.previousNextDueDate || calculateNextDue(undefined, trackable.recurrence, trackable.createdAt)
+              await db.trackables.update(trackableId, { 
+                lastCompleted: undefined,
+                nextDueDate: restoredNextDue,
+                previousNextDueDate: undefined
+              })
+            }
+          } else {
+            // For exercises, just update lastCompleted
+            if (remaining.length > 0) {
+              await db.trackables.update(trackableId, { lastCompleted: remaining[0].completedAt })
+            } else {
+              await db.trackables.update(trackableId, { lastCompleted: undefined })
+            }
+          }
+        }
+      }
+    }
+
+    await loadTrackables(currentType.value, currentPersonId.value || undefined)
+  }
+
+  async function markCompletePast(trackableId: number, daysAgo: number) {
+    const trackable = await db.trackables.get(trackableId)
+    const now = getNow()
+    const pastDate = new Date(now)
+    pastDate.setDate(pastDate.getDate() - daysAgo)
+    // Set to end of that day
+    pastDate.setHours(23, 59, 59, 999)
+    
+    const completion: Completion = {
+      trackableId,
+      completedAt: pastDate,
+      amount: 1
+    }
+    
+    const completionId = await db.completions.add(completion)
+    const added = await db.completions.get(completionId)
+    if (added) {
+      changeTracker.trackAddOrUpdate('completion', completionId, added)
+    }
+    
+    // Update trackable's lastCompleted if this is now the most recent
+    const allCompletions = await db.completions
+      .where('trackableId')
+      .equals(trackableId)
+      .reverse()
+      .sortBy('completedAt')
+    
+    if (allCompletions.length > 0) {
+      const mostRecent = allCompletions[0].completedAt
+      
+      // For repeating chores, always recalculate next due date from most recent completion
+      if (trackable?.type === 'chore' && trackable.isRepeating !== false) {
+        const nextDue = calculateNextDue(mostRecent, trackable.recurrence, trackable.createdAt)
+        await db.trackables.update(trackableId, { 
+          lastCompleted: mostRecent,
+          nextDueDate: nextDue
+        })
+      } else {
+        await db.trackables.update(trackableId, { 
+          lastCompleted: mostRecent
+        })
+      }
+      
+      const updated = await db.trackables.get(trackableId)
+      if (updated) {
+        changeTracker.trackAddOrUpdate('trackable', trackableId, updated)
+      }
+    }
+    
     await loadTrackables(currentType.value, currentPersonId.value || undefined)
   }
 
@@ -270,6 +566,8 @@ export const useTrackableStore = defineStore('trackables', () => {
     deleteTrackable,
     markComplete,
     getHistory,
-    deleteCompletion
+    deleteCompletion,
+    uncompleteTrackable,
+    markCompletePast
   }
 })

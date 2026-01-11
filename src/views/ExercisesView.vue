@@ -7,6 +7,7 @@ import ExerciseCard from '@/components/ExerciseCard.vue'
 import TrackableForm from '@/components/TrackableForm.vue'
 import HistoryModal from '@/components/HistoryModal.vue'
 import LogExerciseModal from '@/components/LogExerciseModal.vue'
+import SyncButton from '@/components/SyncButton.vue'
 import type { Trackable, TrackableWithStatus } from '@/types'
 
 const store = useTrackableStore()
@@ -18,6 +19,10 @@ const showLogModal = ref(false)
 const editingItem = ref<Trackable | null>(null)
 const historyItem = ref<TrackableWithStatus | null>(null)
 const logItem = ref<TrackableWithStatus | null>(null)
+
+function handleSynced() {
+  store.loadTrackables('exercise', peopleStore.selectedPersonId)
+}
 
 onMounted(() => {
   store.loadTrackables('exercise', peopleStore.selectedPersonId)
@@ -105,16 +110,20 @@ const totalDebt = () => {
 <template>
   <div>
     <div class="flex items-center justify-between mb-4">
-      <h1 class="text-2xl font-bold text-gray-900">💪 {{ t('exercises_title') }}</h1>
-      <button
-        @click="openAddForm"
-        class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-      >
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-        </svg>
+      <div></div>
+      <div class="flex items-center gap-2">
+        <button
+          @click="openAddForm"
+          class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
         {{ t('add') }}
       </button>
+
+      <SyncButton @synced="handleSynced" />
+      </div>
     </div>
 
     <!-- Current person info (selection moved to Settings) -->

@@ -22,11 +22,26 @@ const recurrenceEvery = ref(1)
 const recurrenceUnit = ref<RecurrenceUnit>('days')
 const exerciseUnit = ref<ExerciseUnit>('reps')
 const targetAmount = ref(10)
+const isRepeating = ref(false)
+const daysUntilDue = ref<number | ''>('')
 
 const isEditing = computed(() => !!props.editItem)
 const isExercise = computed(() => props.type === 'exercise')
+const isChore = computed(() => props.type === 'chore')
 
 const typeLabel = computed(() => props.type === 'chore' ? 'Chore' : 'Exercise')
+
+const daysUntilDueHelp = computed(() => {
+  if (!isChore.value) return ''
+  if (isRepeating.value) {
+    // Calculate days based on recurrence
+    let days = recurrenceEvery.value
+    if (recurrenceUnit.value === 'weeks') days *= 7
+    if (recurrenceUnit.value === 'months') days *= 30
+    return `Default: ${days} days (based on repeat interval)`
+  }
+  return 'Default: 0 (due immediately)'
+})
 
 watch(() => props.show, (show) => {
   if (show && props.editItem) {
@@ -36,6 +51,8 @@ watch(() => props.show, (show) => {
     recurrenceUnit.value = props.editItem.recurrence.unit
     exerciseUnit.value = props.editItem.exerciseUnit || 'reps'
     targetAmount.value = props.editItem.targetAmount || 10
+    isRepeating.value = props.editItem.isRepeating ?? true
+    daysUntilDue.value = props.editItem.daysUntilDue ?? ''
   } else if (show) {
     name.value = ''
     description.value = ''
@@ -43,6 +60,8 @@ watch(() => props.show, (show) => {
     recurrenceUnit.value = 'days'
     exerciseUnit.value = 'reps'
     targetAmount.value = 10
+    isRepeating.value = false
+    daysUntilDue.value = ''
   }
 })
 
@@ -63,6 +82,19 @@ function handleSubmit() {
     data.personId = props.personId
     data.exerciseUnit = exerciseUnit.value
     data.targetAmount = targetAmount.value
+  }
+  
+  if (isChore.value) {
+    data.isRepeating = isRepeating.value
+    data.daysUntilDue = daysUntilDue.value === '' ? undefined : Number(daysUntilDue.value)
+    
+    // Calculate nextDueDate if we have daysUntilDue
+    if (data.daysUntilDue !== undefined && !isEditing.value) {
+      const now = new Date()
+      const nextDue = new Date(now)
+      nextDue.setDate(nextDue.getDate() + data.daysUntilDue)
+      data.nextDueDate = nextDue
+    }
   }
   
   emit('save', data)
@@ -138,7 +170,63 @@ onBeforeUnmount(() => {
               ></textarea>
             </div>
             
-            <div>
+            <!-- Chore-specific fields -->
+            <template v-if="isChore">
+              <div>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input
+                    v-model="isRepeating"
+                    type="checkbox"
+                    class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                  />
+                  <span class="text-sm font-medium text-gray-700">
+                    {{ t('make_repeating') }}
+                  </span>
+                </label>
+              </div>
+
+              <div v-if="isRepeating">
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  {{ t('field_repeat') }}
+                </label>
+                <div class="flex gap-2">
+                  <input
+                    v-model.number="recurrenceEvery"
+                    type="number"
+                    min="1"
+                    max="365"
+                    class="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                  <select
+                    v-model="recurrenceUnit"
+                    class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  >
+                    <option value="days">{{ t('unit_days') }}</option>
+                    <option value="weeks">{{ t('unit_weeks') }}</option>
+                    <option value="months">{{ t('unit_months') }}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  {{ t('days_until_due') }}
+                </label>
+                <input
+                  v-model.number="daysUntilDue"
+                  type="number"
+                  min="0"
+                  max="365"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  :placeholder="daysUntilDueHelp"
+                />
+                <p class="text-xs text-gray-500 mt-1">
+                  {{ daysUntilDueHelp }}
+                </p>
+              </div>
+            </template>
+            
+            <div v-if="!isChore">
               <label class="block text-sm font-medium text-gray-700 mb-1">
                 {{ t('field_repeat') }}
               </label>

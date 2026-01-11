@@ -4,6 +4,8 @@ export type RecurrenceUnit = 'days' | 'weeks' | 'months'
 
 export type ExerciseUnit = 'reps' | 'km' | 'steps' | 'minutes' | 'sets'
 
+export type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'PLN' | 'CAD' | 'AUD'
+
 export interface Recurrence {
   every: number
   unit: RecurrenceUnit
@@ -23,6 +25,11 @@ export interface Trackable {
   personId?: string
   exerciseUnit?: ExerciseUnit
   targetAmount?: number
+  // Chore-specific fields
+  isRepeating?: boolean
+  daysUntilDue?: number
+  nextDueDate?: Date
+  previousNextDueDate?: Date
 }
 
 export interface Completion {
@@ -53,6 +60,9 @@ export interface TrackableWithStatus extends Trackable {
   advanceAmount?: number
   currentPeriodTarget?: number
   currentPeriodDone?: number
+  // Exercise stats
+  monthlyCompletions?: number
+  yearlyCompletions?: number
 }
 
 // Grocery list types
@@ -63,4 +73,15 @@ export interface GroceryItem {
   checked: boolean
   createdAt: Date
   category?: string
+  order: number
+}
+
+export interface Expense {
+  id?: number
+  name: string
+  description?: string
+  cost: number
+  order: number
+  completed: boolean
+  createdAt: Date
 }

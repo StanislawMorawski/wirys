@@ -7,40 +7,30 @@ import TrackableCard from '@/components/TrackableCard.vue'
 import TrackableForm from '@/components/TrackableForm.vue'
 import HistoryModal from '@/components/HistoryModal.vue'
 import CalendarGrid from '@/components/CalendarGrid.vue'
-import { mergeWithGist } from '@/db/sync'
+import SyncButton from '@/components/SyncButton.vue'
+import ChoreDetailModal from '@/components/ChoreDetailModal.vue'
 import { t } from '@/i18n'
-import type { Trackable, TrackableWithStatus, Completion } from '@/types' 
+import type { Trackable, TrackableWithStatus } from '@/types' 
 const store = useTrackableStore()
 
 const showForm = ref(false)
 const showHistory = ref(false)
-const showRecentHistory = ref(false)
 const showCalendar = ref(false)
+const showDetail = ref(false)
+const detailItem = ref<TrackableWithStatus | null>(null)
 const calLoading = ref(false)
 const calendarEvents = ref<Array<{ date: string; payload?: any }>>([])
 const selectedCalDay = ref<string | null>(null)
 const dayEntries = ref<any[]>([])
 const editingItem = ref<Trackable | null>(null)
 const historyItem = ref<TrackableWithStatus | null>(null)
-const recentCompletions = ref<(Completion & { trackableName?: string })[]>([])
-const syncing = ref(false)
 
-async function runMergeSync() {
-  syncing.value = true
-  try {
-    await mergeWithGist()
-    await loadRecentHistory()
-    await store.loadTrackables('chore')
-  } catch (e: any) {
-    alert(`Sync error: ${e.message}`)
-  } finally {
-    syncing.value = false
-  }
+function handleSynced() {
+  store.loadTrackables('chore')
 }
 
 onMounted(() => {
   store.loadTrackables('chore')
-  loadRecentHistory()
 })
 
 import { onBeforeRouteLeave } from 'vue-router'
@@ -53,20 +43,6 @@ onBeforeRouteLeave((_to, _from, next) => {
   next()
 })
 
-async function loadRecentHistory() {
-  const completions = await db.completions.reverse().sortBy('completedAt')
-  const trackables = await db.trackables.where('type').equals('chore').toArray()
-  const trackableMap = new Map(trackables.map(t => [t.id!, t.name]))
-  
-  recentCompletions.value = completions
-    .filter(c => trackableMap.has(c.trackableId))
-    .slice(0, 20)
-    .map(c => ({
-      ...c,
-      trackableName: trackableMap.get(c.trackableId)
-    }))
-}
-
 function openAddForm() {
   editingItem.value = null
   showForm.value = true
@@ -78,10 +54,32 @@ async function openCalendar() {
     const completions = await getAllCompletions()
     const chores = await db.trackables.where('type').equals('chore').toArray()
     const choreIds = new Set(chores.map(c => c.id))
-    const trackableMap = new Map(chores.map(c => [c.id, c.name]))
+    const trackableMap = new Map(chores.map(c => [c.id!, { name: c.name, nextDue: c.nextDueDate }]))
 
+    // Past completions
     const filtered = completions.filter(c => choreIds.has(c.trackableId))
-    calendarEvents.value = filtered.map(c => ({ date: new Date(c.completedAt).toISOString().slice(0,10), payload: { trackableName: trackableMap.get(c.trackableId), notes: c.notes } }))
+    const completionEvents = filtered.map(c => ({ 
+      date: new Date(c.completedAt).toISOString().slice(0,10), 
+      payload: { 
+        type: 'completion',
+        trackableName: trackableMap.get(c.trackableId)?.name,
+        time: new Date(c.completedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+        notes: c.notes 
+      } 
+    }))
+    
+    // Upcoming due dates
+    const upcomingEvents = chores
+      .filter(c => c.nextDueDate && !c.archived)
+      .map(c => ({
+        date: new Date(c.nextDueDate!).toISOString().slice(0,10),
+        payload: {
+          type: 'upcoming',
+          trackableName: c.name
+        }
+      }))
+    
+    calendarEvents.value = [...completionEvents, ...upcomingEvents]
   } finally {
     calLoading.value = false
     showCalendar.value = true
@@ -97,10 +95,10 @@ function closeCalendar() {
 
 function onCalDayClick(date: string) {
   selectedCalDay.value = date
-  getAllCompletions().then(all => {
-    const chores = all.filter(c => new Date(c.completedAt).toISOString().slice(0,10) === date && c.trackableId)
-    dayEntries.value = chores
-  })
+  // Get the events for this day from calendarEvents
+  dayEntries.value = calendarEvents.value
+    .filter(e => e.date === date)
+    .map(e => e.payload)
 }
 
 function openEditForm(item: TrackableWithStatus) {
@@ -113,6 +111,40 @@ function openEditForm(item: TrackableWithStatus) {
 function openHistory(item: TrackableWithStatus) {
   historyItem.value = item
   showHistory.value = true
+  showDetail.value = false
+}
+
+function openDetail(item: TrackableWithStatus) {
+  detailItem.value = item
+  showDetail.value = true
+}
+
+function handleDetailEdit() {
+  if (detailItem.value) {
+    editingItem.value = detailItem.value as Trackable
+    showDetail.value = false
+    showForm.value = true
+  }
+}
+
+function handleDetailHistory() {
+  if (detailItem.value) {
+    openHistory(detailItem.value)
+  }
+}
+
+function handleDetailReschedule(days: number) {
+  if (detailItem.value) {
+    handleReschedule(detailItem.value, days)
+    showDetail.value = false
+  }
+}
+
+async function handleDetailCompletePast(daysAgo: number) {
+  if (detailItem.value) {
+    await store.markCompletePast(detailItem.value.id!, daysAgo)
+    showDetail.value = false
+  }
 }
 
 async function handleSave(data: Omit<Trackable, 'id' | 'createdAt' | 'archived'>) {
@@ -139,30 +171,35 @@ async function handleDelete(id?: number) {
 
 async function handleComplete(item: TrackableWithStatus) {
   await store.markComplete(item.id!)
-  await loadRecentHistory()
 }
 
-function formatDate(date: Date): string {
-  const d = new Date(date)
+async function handleUncomplete(item: TrackableWithStatus) {
+  await store.uncompleteTrackable(item.id!)
+}
+
+async function handleReschedule(item: TrackableWithStatus, days: number) {
   const now = getNow()
-  const diff = now.getTime() - d.getTime()
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  const nextDue = new Date(now)
+  nextDue.setDate(nextDue.getDate() + days)
   
-  if (days === 0) {
-    return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(d)
-  } else if (days === 1) {
-    return 'Yesterday'
-  } else if (days < 7) {
-    return `${days} days ago`
+  // For one-time tasks, clear the completion status when rescheduling
+  const isOneTime = item.type === 'chore' && item.isRepeating === false
+  if (isOneTime) {
+    // Delete all completions for this one-time task
+    await db.completions.where('trackableId').equals(item.id!).delete()
+    await store.updateTrackable(item.id!, { nextDueDate: nextDue, lastCompleted: undefined })
+  } else {
+    await store.updateTrackable(item.id!, { nextDueDate: nextDue })
   }
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(d)
+  
+  // Reload to reflect changes in UI
+  await store.loadTrackables('chore', undefined)
 }
 </script>
 
 <template>
   <div>
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">{{ t('chores_title') }}</h1>
       <div class="flex gap-2">
         <button
           @click="openCalendar"
@@ -185,17 +222,7 @@ function formatDate(date: Date): string {
             {{ t('add') }}
           </button>
 
-          <button
-            @click="runMergeSync"
-            :disabled="syncing"
-            class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v6h6M20 20v-6h-6" />
-            </svg>
-            <span v-if="!syncing">{{ t('sync') }}</span>
-            <span v-else>{{ t('syncing') }}</span>
-          </button>
+          <SyncButton @synced="handleSynced" />
         </div>
       </div>
     </div>
@@ -221,33 +248,11 @@ function formatDate(date: Date): string {
           :key="item.id"
           :item="item"
           @complete="handleComplete(item)"
+          @uncomplete="handleUncomplete(item)"
+          @reschedule="(days) => handleReschedule(item, days)"
           @edit="openEditForm(item)"
-          @view-history="openHistory(item)"
+          @view-history="openDetail(item)"
         />
-      </div>
-
-      <!-- Recent History Section -->
-      <div v-if="recentCompletions.length > 0" class="mt-8">
-        <button
-          @click="showRecentHistory = !showRecentHistory"
-          class="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-700 mb-3"
-        >
-          <svg 
-            class="w-4 h-4 transition-transform" 
-            :class="showRecentHistory ? 'rotate-90' : ''"
-            fill="none" stroke="currentColor" viewBox="0 0 24 24"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-          </svg>
-          {{ t('recent_history') }} ({{ recentCompletions.length }})
-        </button>
-
-        <div v-if="showRecentHistory" class="space-y-2">
-          <div v-for="completion in recentCompletions" :key="completion.id" class="py-2 px-3 bg-gray-50 rounded">
-            <div class="text-sm font-medium">{{ completion.trackableName }}</div>
-            <div class="text-xs text-gray-500">{{ formatDate(new Date(completion.completedAt)) }}</div>
-          </div>
-        </div>
       </div>
     </template>
 
@@ -264,7 +269,7 @@ function formatDate(date: Date): string {
       :show="showHistory"
       :item="historyItem"
       @close="showHistory = false"
-      @updated="store.loadTrackables('chore'); loadRecentHistory()"
+      @updated="store.loadTrackables('chore')"
     />
 
     <Teleport to="body">
@@ -279,15 +284,21 @@ function formatDate(date: Date): string {
 
             <div v-if="calLoading" class="py-8 text-center text-gray-500">{{ t('loading') }}</div>
             <div v-else>
-              <div class="text-xs text-gray-500 mb-2">{{ t('chore_completions_month').replace('{count}', String(calendarEvents.length)) }}</div>
               <CalendarGrid :events="calendarEvents" @dayClick="onCalDayClick" />
 
               <div v-if="selectedCalDay" class="mt-4">
                 <div class="font-semibold mb-2">{{ t('entries_on') }} {{ selectedCalDay }}</div>
                 <ul class="space-y-2">
-                  <li v-for="e in dayEntries" :key="e.id" class="py-2 px-3 bg-gray-50 rounded">
-                    <div class="text-sm font-medium">{{ new Date(e.completedAt).toLocaleString() }}</div>
-                    <div class="text-xs text-gray-600">{{ e.notes }}</div>
+                  <li v-for="(entry, idx) in dayEntries" :key="idx" class="py-2 px-3 bg-gray-50 rounded">
+                    <div class="flex items-center gap-2">
+                      <span v-if="entry.type === 'completion'">✓</span>
+                      <span v-else>📅</span>
+                      <div class="flex-1">
+                        <div class="text-sm font-medium">{{ entry.trackableName }}</div>
+                        <div v-if="entry.time" class="text-xs text-gray-600">{{ entry.time }}</div>
+                        <div v-if="entry.notes" class="text-xs text-gray-600 mt-1">{{ entry.notes }}</div>
+                      </div>
+                    </div>
                   </li>
                 </ul>
               </div>
@@ -298,5 +309,16 @@ function formatDate(date: Date): string {
         </div>
       </Transition>
     </Teleport>
+
+    <!-- Chore Detail Modal -->
+    <ChoreDetailModal
+      v-if="showDetail && detailItem"
+      :item="detailItem"
+      @close="showDetail = false"
+      @edit="handleDetailEdit"
+      @view-history="handleDetailHistory"
+      @reschedule="handleDetailReschedule"
+      @complete-past="handleDetailCompletePast"
+    />
   </div>
 </template>

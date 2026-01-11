@@ -46,6 +46,11 @@ export default defineComponent({
       }
       return map
     })
+    
+    const todayStr = computed(() => {
+      const now = new Date()
+      return now.toISOString().slice(0, 10)
+    })
 
     const highlightSet = computed(() => new Set((props.highlightDates || []).map(d => d)))
 
@@ -81,6 +86,7 @@ export default defineComponent({
       eventsByDate,
       eventsList,
       highlightSet,
+      todayStr,
       prevMonth,
       nextMonth,
       onDayClick
@@ -91,42 +97,59 @@ export default defineComponent({
 
 <template>
   <div>
-    <div class="flex items-center justify-between mb-3">
-      <div class="text-sm font-semibold">{{ new Date(activeYear, activeMonth).toLocaleString(undefined, { month: 'long', year: 'numeric' }) }}</div>
-      <div class="flex gap-2">
-        <button @click="prevMonth" class="px-2 py-1 border rounded">Prev</button>
-        <button @click="nextMonth" class="px-2 py-1 border rounded">Next</button>
-      </div>
+    <div class="flex items-center justify-between mb-4">
+      <button @click="prevMonth" class="px-3 py-2 border rounded-lg hover:bg-gray-50 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+      <div class="text-lg font-semibold">{{ new Date(activeYear, activeMonth).toLocaleString(undefined, { month: 'long', year: 'numeric' }) }}</div>
+      <button @click="nextMonth" class="px-3 py-2 border rounded-lg hover:bg-gray-50 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
     </div>
 
-    <div class="text-xs text-gray-500 mb-2">Events this month: {{ eventsList.length }}</div>
-
-    <div class="grid grid-cols-7 gap-1 text-xs text-gray-500">
-      <div v-for="wd in weekDays" :key="wd" class="text-center font-medium">{{ wd }}</div>
+    <div class="grid grid-cols-7 gap-0.5 text-xs font-semibold text-gray-600 mb-1">
+      <div v-for="wd in weekDays" :key="wd" class="text-center py-2">{{ wd }}</div>
     </div>
 
-    <div class="grid grid-cols-7 gap-1 mt-2">
+    <div class="grid grid-cols-7 gap-0.5 bg-gray-200 rounded-lg p-0.5">
       <!-- blank slots for first day offset -->
-      <template v-for="_i in firstDayOfMonth">
-        <div class="h-20 border rounded bg-white/0"></div>
+      <template v-for="_i in firstDayOfMonth" :key="'blank-' + _i">
+        <div class="bg-gray-50 aspect-square"></div>
       </template>
 
-      <div
+      <button
         v-for="cell in grid"
         :key="cell.date"
-        :class="['h-20 border rounded p-1 bg-white flex flex-col justify-between', highlightSet.has(cell.date) ? 'bg-green-50 border-green-200' : '']"
+        @click="onDayClick(cell.date)"
+        :class="[
+          'bg-white aspect-square flex flex-col items-center justify-center relative transition-colors',
+          eventsByDate.get(cell.date) ? 'hover:bg-primary-50' : 'hover:bg-gray-50',
+          highlightSet.has(cell.date) ? 'bg-green-50 ring-2 ring-green-400' : '',
+          cell.date === todayStr ? 'ring-2 ring-primary-500 bg-primary-50' : ''
+        ]"
       >
-        <div class="flex items-center justify-between">
-          <div class="text-xs font-medium">{{ cell.dayNum }}</div>
-          <div v-if="eventsByDate.get(cell.date)" class="text-xs text-blue-600">{{ eventsByDate.get(cell.date)!.length }}</div>
+        <span class="text-sm font-medium" :class="[
+          eventsByDate.get(cell.date) ? 'text-gray-900' : 'text-gray-500',
+          cell.date === todayStr ? 'text-primary-700 font-bold' : ''
+        ]">
+          {{ cell.dayNum }}
+        </span>
+        <div v-if="eventsByDate.get(cell.date)" class="absolute bottom-1 flex gap-0.5">
+          <div 
+            v-for="(event, i) in eventsByDate.get(cell.date) || []" 
+            :key="i"
+            v-show="i < 3"
+            :class="[
+              'w-1.5 h-1.5 rounded-full',
+              event.type === 'upcoming' ? 'bg-yellow-500' : 'bg-primary-600'
+            ]"
+          ></div>
         </div>
-        <div class="text-xs mt-2 overflow-hidden text-ellipsis">
-          <div v-for="(ev, idx) in (eventsByDate.get(cell.date) || []).slice(0,3)" :key="idx" class="text-xs text-gray-700">• {{ ev.name || ev.trackableName || ev.label || 'Entry' }}</div>
-        </div>
-        <button @click="onDayClick(cell.date)" class="text-xs text-gray-500 mt-1 self-end">View</button>
-      </div>
-
-      <div v-if="grid.length === 0" class="col-span-7 text-center text-gray-500 py-6">No days in this month</div>
+      </button>
     </div>
   </div>
 </template>

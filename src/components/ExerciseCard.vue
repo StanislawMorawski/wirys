@@ -14,16 +14,6 @@ const emit = defineEmits<{
   viewHistory: []
 }>()
 
-function formatDate(date: Date | undefined): string {
-  if (!date) return t('never')
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit'
-  }).format(new Date(date))
-}
-
 function formatRecurrence(item: TrackableWithStatus): string {
   const { every, unit } = item.recurrence
   const target = item.targetAmount || 0
@@ -108,8 +98,9 @@ const debtPercent = computed(() => {
 
 <template>
   <div
-    class="rounded-xl border p-4 shadow-sm transition-all"
+    class="rounded-xl border p-4 shadow-sm transition-all cursor-pointer hover:shadow-md"
     :class="statusColor"
+    @click="emit('viewHistory')"
   >
     <div class="flex items-start justify-between gap-3">
       <div class="flex-1 min-w-0">
@@ -154,6 +145,15 @@ const debtPercent = computed(() => {
           <span class="flex items-center gap-1">
             <span>📊</span>
             {{ item.totalCompleted || 0 }} {{ t('unit_' + (item.exerciseUnit || 'reps')) }} {{ t('total_label') }}
+          </span>
+        </div>
+        
+        <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
+          <span v-if="item.monthlyCompletions !== undefined">
+            📅 {{ item.monthlyCompletions }} {{ t('unit_' + (item.exerciseUnit || 'reps')) }} {{ t('this_month') }}
+          </span>
+          <span v-if="item.yearlyCompletions !== undefined">
+            🗓️ {{ item.yearlyCompletions }} {{ t('unit_' + (item.exerciseUnit || 'reps')) }} {{ t('this_year') }}
           </span>
         </div>
         
@@ -213,15 +213,11 @@ const debtPercent = computed(() => {
             </div>
           </template>
         </div>
-        
-        <div class="text-sm text-gray-500 mt-1">
-          Last logged: {{ formatDate(item.lastCompleted) }}
-        </div>
       </div>
       
       <div class="flex items-center gap-2">
         <button
-          @click="emit('completeToday')"
+          @click.stop="emit('completeToday')"
           :disabled="!canQuickComplete"
           :class="canQuickComplete ? 'flex-shrink-0 w-10 h-10 rounded-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center shadow transition-all' : 'flex-shrink-0 w-10 h-10 rounded-full bg-gray-200 text-gray-400 flex items-center justify-center shadow transition-all cursor-not-allowed'"
           :title="t('completeToday')"
@@ -232,7 +228,7 @@ const debtPercent = computed(() => {
         </button>
 
         <button
-          @click="emit('logExercise')"
+          @click.stop="emit('logExercise')"
           class="flex-shrink-0 w-14 h-14 rounded-full bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white flex items-center justify-center shadow-lg transition-all touch-action-manipulation"
           :title="t('logExercise')"
         >
@@ -241,22 +237,6 @@ const debtPercent = computed(() => {
           </svg>
         </button>
       </div>
-    </div>
-    
-    <div class="flex gap-2 mt-3 pt-3 border-t border-gray-100">
-      <button
-        @click="emit('viewHistory')"
-        class="text-sm text-gray-600 hover:text-primary-600 transition-colors"
-      >
-        {{ t('view_history') }}
-      </button>
-      <span class="text-gray-300">|</span>
-      <button
-        @click="emit('edit')"
-        class="text-sm text-gray-600 hover:text-primary-600 transition-colors"
-      >
-        {{ t('edit') }}
-      </button>
     </div>
   </div>
 </template>

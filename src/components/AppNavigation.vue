@@ -7,9 +7,9 @@ import { t } from '@/i18n'
 
 const navItems = [
   { name: () => t('nav_chores'), path: '/', icon: '🏠' },
-  { name: () => t('nav_exercises'), path: '/exercises', icon: '💪' },
+  { name: () => t('nav_exercises'), path: '/exercises', icon: '💪🏻' },
   { name: () => t('nav_groceries'), path: '/groceries', icon: '🛒' },
-  { name: () => t('nav_settings'), path: '/settings', icon: '⚙️' }
+  { name: () => t('nav_expenses'), path: '/expenses', icon: '💰' }
 ]
 
 const isActive = (path: string) => {

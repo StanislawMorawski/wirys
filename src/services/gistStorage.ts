@@ -5,6 +5,12 @@ export type FullSnapshot = {
     trackables: any[]
     completions: any[]
     groceries: any[]
+    expenses?: any[]
+    people?: any[]
+    preferences?: {
+      currency?: string
+      budget?: number
+    }
   }
 }
 
@@ -178,6 +184,26 @@ export async function upsertCurrentGist(snapshot: Snapshot, isPublic = false) {
   const id = getGistId()
   if (id) return updateGist(id, snapshot)
   return createGist(snapshot, isPublic)
+}
+
+export async function searchWirysGists(): Promise<string | null> {
+  try {
+    const gists = await ghFetch('/gists', 'GET')
+    
+    // Search for gist containing wirys-data.json file
+    for (const gist of gists) {
+      const hasWirysFile = gist.files && gist.files[GIST_FILE_NAME]
+      
+      if (hasWirysFile) {
+        return gist.id
+      }
+    }
+    
+    return null
+  } catch (e) {
+    console.error('Error searching for wirys gists:', e)
+    return null
+  }
 }
 
 const LAST_MINIMAL_KEY = 'wirys_last_minimal_snapshot'

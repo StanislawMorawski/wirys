@@ -2,14 +2,22 @@ import { db } from '@/db'
 import type { Snapshot, MinimalSnapshot } from '@/services/gistStorage'
 import { getLastCompletion, deleteTrackable } from '@/db'
 import { fetchCurrentGistSnapshot, upsertCurrentGist, minimalFromFullSnapshot } from '@/services/gistStorage'
-import { getLastSyncedMinimal, setLastSyncedMinimal } from '@/services/gistStorage'
+import { setLastSyncedMinimal } from '@/services/gistStorage'
+import { usePeopleStore } from '@/stores/people'
+import { useSettingsStore } from '@/stores/settings'
+import { changeTracker } from '@/db/changes'
+import type { Trackable, Completion, GroceryItem, Expense } from '@/types'
 
 export async function exportSnapshot(): Promise<Snapshot> {
-  const [trackables, completions, groceries] = await Promise.all([
+  const [trackables, completions, groceries, expenses] = await Promise.all([
     db.trackables.toArray(),
     db.completions.toArray(),
-    db.groceries.toArray()
+    db.groceries.toArray(),
+    db.expenses.toArray()
   ])
+
+  const peopleStore = usePeopleStore()
+  const settingsStore = useSettingsStore()
 
   return {
     version: 1,
@@ -17,27 +25,48 @@ export async function exportSnapshot(): Promise<Snapshot> {
     data: {
       trackables,
       completions,
-      groceries
+      groceries,
+      expenses,
+      people: peopleStore.people,
+      preferences: {
+        currency: settingsStore.currency,
+        budget: settingsStore.budget
+      }
     }
   }
 }
 
 export async function importSnapshot(snapshot: Snapshot) {
-  const { trackables = [], completions = [], groceries = [] } = (snapshot.data as any) || {}
+  const { trackables = [], completions = [], groceries = [], expenses = [], people = [], preferences } = (snapshot.data as any) || {}
 
   // Use transaction to replace existing data atomically
-  await db.transaction('rw', [db.trackables, db.completions, db.groceries], async () => {
+  await db.transaction('rw', [db.trackables, db.completions, db.groceries, db.expenses], async () => {
     await Promise.all([
       db.trackables.clear(),
       db.completions.clear(),
-      db.groceries.clear()
+      db.groceries.clear(),
+      db.expenses.clear()
     ])
 
     // bulkPut respects provided ids when present
     if (trackables.length) await db.trackables.bulkPut(trackables)
     if (completions.length) await db.completions.bulkPut(completions)
     if (groceries.length) await db.groceries.bulkPut(groceries)
+    if (expenses.length) await db.expenses.bulkPut(expenses)
   })
+
+  // Import people and preferences
+  if (people && people.length > 0) {
+    const peopleStore = usePeopleStore()
+    peopleStore.people = people
+    peopleStore.savePeople()
+  }
+
+  if (preferences) {
+    const settingsStore = useSettingsStore()
+    if (preferences.currency) settingsStore.setCurrency(preferences.currency)
+    if (preferences.budget !== undefined) settingsStore.setBudget(preferences.budget)
+  }
 }
 
 
@@ -110,89 +139,136 @@ export async function importMinimalSnapshot(snapshot: MinimalSnapshot, mode: 're
 }
 
 /**
- * Merge local chores with the current gist snapshot and push merged full snapshot back to gist.
- * Behavior:
- *  - Uses last synced minimal snapshot to detect deletions.
- *  - For each task, keeps the newest lastCompleted timestamp and ensures a completion exists for it.
- *  - Adds tasks present in remote but missing locally.
- *  - Removes tasks deleted on remote since last sync.
- *  - Adds local-only tasks to remote via pushing the full snapshot.
+ * Merge local changes with the current gist snapshot and push merged full snapshot back to gist.
+ * New behavior:
+ *  1. Fetch current cloud state
+ *  2. Load cloud state locally (overwrite local db)
+ *  3. Apply tracked local changes on top
+ *  4. Push merged state back to cloud
+ *  5. Clear tracked changes
  */
 export async function mergeWithGist(): Promise<void> {
   const remote = await fetchCurrentGistSnapshot()
   if (!remote) throw new Error('No gist snapshot found. Set gist ID in Settings and save a snapshot first.')
 
-  const remoteMinimal = minimalFromFullSnapshot(remote)
-  const prev = getLastSyncedMinimal()
-
-  const prevIds = new Set((prev?.data.trackables || []).map((t: any) => t.id))
-  const remoteIds = new Set((remoteMinimal.data.trackables || []).map((t: any) => t.id))
-
-  // Load local chores
-  const localChores = await db.trackables.where('type').equals('chore').toArray()
-  const localIds = new Set(localChores.map(t => t.id!))
-
-  // 1) Remove tasks deleted on remote since last sync
-  if (prev) {
-    for (const id of prevIds) {
-      if (!remoteIds.has(id) && localIds.has(id)) {
-        // deleted on remote since last sync => remove locally
-        await deleteTrackable(id)
-      }
-    }
+  // Get tracked local changes before importing
+  const localChanges = changeTracker.getChanges()
+  
+  if (localChanges.length === 0) {
+    console.log('No local changes to sync')
+    return
   }
 
-  // Refresh local chores after deletions
-  const refreshedLocal = await db.trackables.where('type').equals('chore').toArray()
-  const refreshedMap = new Map(refreshedLocal.map(t => [t.id!, t]))
+  console.log(`Syncing ${localChanges.length} local changes...`)
 
-  // 2) For remote items, add missing locally and update lastCompleted
-  for (const r of remoteMinimal.data.trackables) {
-    const local = refreshedMap.get(r.id)
-    if (!local) {
-      // If no full remote trackable available, create a placeholder
-      // Try to extract full trackable from full snapshot if available
-      let candidate: any = null
-      if ((remote as any).data?.trackables) {
-        candidate = (remote as any).data.trackables.find((tt: any) => tt.id === r.id)
-      }
+  // Step 1: Import cloud state (this overwrites local data)
+  await importSnapshot(remote)
 
-      const newTrackable = candidate ? {
-        ...candidate,
-        createdAt: candidate.createdAt ? new Date(candidate.createdAt) : new Date(),
-        archived: !!candidate.archived
-      } : {
-        id: r.id,
-        type: 'chore',
-        name: `Imported task ${r.id}`,
-        recurrence: { every: 1, unit: 'days' },
-        createdAt: new Date(),
-        archived: !!r.archived
-      }
+  // Step 2: Apply local changes on top of cloud state
+  await applyChanges(localChanges)
 
-      // Use bulkPut to preserve remote id when present
-      await db.trackables.bulkPut([newTrackable])
-    }
+  // Step 3: Export merged state and push back to cloud
+  const merged = await exportSnapshot()
+  await upsertCurrentGist(merged)
 
-    // Ensure lastCompleted is applied locally if newer
-    if (r.lastCompleted) {
-      const gistTime = new Date(r.lastCompleted).getTime()
-      const lastLocalComp = await getLastCompletion(r.id)
-      const lastLocalTime = lastLocalComp?.completedAt ? new Date(lastLocalComp.completedAt).getTime() : 0
-      if (!lastLocalComp || gistTime > lastLocalTime) {
-        await db.completions.add({ trackableId: r.id, completedAt: new Date(r.lastCompleted) })
-        await db.trackables.update(r.id, { lastCompleted: new Date(r.lastCompleted) })
-      }
-    }
-  }
+  // Step 4: Clear tracked changes after successful sync
+  changeTracker.clearChanges()
+  
+  console.log('Sync complete!')
 
-  // 3) Add local-only tasks to remote will be handled by pushing a full snapshot below
-
-  // 4) Export merged full snapshot and push
-  const full = await exportSnapshot()
-  await upsertCurrentGist(full)
-
-  // 5) Update last-synced minimal snapshot locally
-  const newMinimal = minimalFromFullSnapshot(full)
+  // Update last-synced minimal snapshot
+  const newMinimal = minimalFromFullSnapshot(merged)
   setLastSyncedMinimal(newMinimal)
+}
+
+/**
+ * Apply tracked changes to the current database state
+ */
+async function applyChanges(changes: ReturnType<typeof changeTracker.getChanges>) {
+  for (const change of changes) {
+    try {
+      switch (change.entityType) {
+        case 'trackable':
+          await applyTrackableChange(change)
+          break
+        case 'completion':
+          await applyCompletionChange(change)
+          break
+        case 'grocery':
+          await applyGroceryChange(change)
+          break
+        case 'expense':
+          await applyExpenseChange(change)
+          break
+      }
+    } catch (e) {
+      console.error(`Failed to apply change ${change.id}:`, e)
+    }
+  }
+}
+
+async function applyTrackableChange(change: any) {
+  if (change.changeType === 'delete') {
+    // Delete trackable and its completions
+    const existing = await db.trackables.get(change.entityId)
+    if (existing) {
+      await db.transaction('rw', [db.trackables, db.completions], async () => {
+        await db.completions.where('trackableId').equals(change.entityId).delete()
+        await db.trackables.delete(change.entityId)
+      })
+    }
+  } else {
+    // Add or update trackable
+    const data = change.data as Trackable
+    // Ensure dates are Date objects
+    if (data.createdAt && typeof data.createdAt === 'string') {
+      data.createdAt = new Date(data.createdAt)
+    }
+    if (data.lastCompleted && typeof data.lastCompleted === 'string') {
+      data.lastCompleted = new Date(data.lastCompleted)
+    }
+    if (data.nextDueDate && typeof data.nextDueDate === 'string') {
+      data.nextDueDate = new Date(data.nextDueDate)
+    }
+    await db.trackables.put(data)
+  }
+}
+
+async function applyCompletionChange(change: any) {
+  if (change.changeType === 'delete') {
+    await db.completions.delete(change.entityId)
+  } else {
+    const data = change.data as Completion
+    // Ensure completedAt is a Date object
+    if (data.completedAt && typeof data.completedAt === 'string') {
+      data.completedAt = new Date(data.completedAt)
+    }
+    await db.completions.put(data)
+  }
+}
+
+async function applyGroceryChange(change: any) {
+  if (change.changeType === 'delete') {
+    await db.groceries.delete(change.entityId)
+  } else {
+    const data = change.data as GroceryItem
+    // Ensure createdAt is a Date object
+    if (data.createdAt && typeof data.createdAt === 'string') {
+      data.createdAt = new Date(data.createdAt)
+    }
+    await db.groceries.put(data)
+  }
+}
+
+async function applyExpenseChange(change: any) {
+  if (change.changeType === 'delete') {
+    await db.expenses.delete(change.entityId)
+  } else {
+    const data = change.data as Expense
+    // Ensure createdAt is a Date object
+    if (data.createdAt && typeof data.createdAt === 'string') {
+      data.createdAt = new Date(data.createdAt)
+    }
+    await db.expenses.put(data)
+  }
 }
