@@ -72,10 +72,10 @@ function handleDelete() {
   if (confirm('Are you sure you want to delete this item? All history will be lost.')) {
     // Emit the id of the item to delete so parent doesn't rely on modal-scoped state
     if (props.editItem?.id !== undefined) {
-      emit('delete-item', props.editItem.id)
+      emit('deleteItem', props.editItem.id)
     } else {
       // Fallback - emit an invalid id to allow parent to handle gracefully
-      emit('delete-item', -1)
+      emit('deleteItem', -1)
     }
   }
 }

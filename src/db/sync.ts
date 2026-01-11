@@ -1,7 +1,7 @@
 import { db } from '@/db'
 import type { Snapshot, MinimalSnapshot } from '@/services/gistStorage'
 import { getLastCompletion, deleteTrackable } from '@/db'
-import { fetchCurrentGistSnapshot, upsertCurrentGist, minimalFromFullSnapshot, fetchCurrentMinimalSnapshot } from '@/services/gistStorage'
+import { fetchCurrentGistSnapshot, upsertCurrentGist, minimalFromFullSnapshot } from '@/services/gistStorage'
 import { getLastSyncedMinimal, setLastSyncedMinimal } from '@/services/gistStorage'
 
 export async function exportSnapshot(): Promise<Snapshot> {
@@ -23,7 +23,7 @@ export async function exportSnapshot(): Promise<Snapshot> {
 }
 
 export async function importSnapshot(snapshot: Snapshot) {
-  const { trackables = [], completions = [], groceries = [] } = snapshot.data || {}
+  const { trackables = [], completions = [], groceries = [] } = (snapshot.data as any) || {}
 
   // Use transaction to replace existing data atomically
   await db.transaction('rw', [db.trackables, db.completions, db.groceries], async () => {
@@ -39,6 +39,7 @@ export async function importSnapshot(snapshot: Snapshot) {
     if (groceries.length) await db.groceries.bulkPut(groceries)
   })
 }
+
 
 /**
  * Export a minimal snapshot used for gist sync. Only chores are included with their last completion timestamp.
@@ -93,7 +94,7 @@ export async function importMinimalSnapshot(snapshot: MinimalSnapshot, mode: 're
       await db.trackables.update(item.id, { lastCompleted: new Date(item.lastCompleted) })
     } else {
       // No lastCompleted in gist — clear local lastCompleted field
-      await db.trackables.update(item.id, { lastCompleted: null })
+      await db.trackables.update(item.id, { lastCompleted: undefined })
     }
   }
 
@@ -129,7 +130,6 @@ export async function mergeWithGist(): Promise<void> {
 
   // Load local chores
   const localChores = await db.trackables.where('type').equals('chore').toArray()
-  const localMap = new Map(localChores.map(t => [t.id!, t]))
   const localIds = new Set(localChores.map(t => t.id!))
 
   // 1) Remove tasks deleted on remote since last sync

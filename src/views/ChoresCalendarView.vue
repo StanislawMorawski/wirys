@@ -3,7 +3,6 @@ import { ref, onMounted } from 'vue'
 import { t } from '@/i18n'
 import CalendarGrid from '@/components/CalendarGrid.vue'
 import { db, getAllCompletions } from '@/db'
-import { getNow } from '@/dev/time'
 
 const events = ref<Array<{ date: string; payload: any }>>([])
 const loading = ref(false)

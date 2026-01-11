@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useTrackableStore } from '@/stores/trackable'
 import { db, getAllCompletions } from '@/db'
 import { getNow } from '@/dev/time'
@@ -45,7 +45,7 @@ onMounted(() => {
 
 import { onBeforeRouteLeave } from 'vue-router'
 
-onBeforeRouteLeave((to, from, next) => {
+onBeforeRouteLeave((_to, _from, next) => {
   // ensure any floating modals are closed before navigating away
   showCalendar.value = false
   showForm.value = false

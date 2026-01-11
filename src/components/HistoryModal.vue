@@ -214,7 +214,7 @@ async function handleDeleteEntry(completionId: number | undefined) {
               <CalendarGrid :events="calendarEvents" :highlight-dates="highlightDates" :year="calendarYear" :month="calendarMonth" @dayClick="selectedDay = $event" />
 
               <div v-if="selectedDay" class="mt-4">
-                <div class="font-semibold mb-2">{{ t('entries_on') }} {{ selectedCalDay }}</div>
+                <div class="font-semibold mb-2">{{ t('entries_on') }} {{ formatDate(new Date(selectedDay)) }}</div>
                 <ul class="space-y-2">
                   <li v-for="c in completions.filter(x => toDateKey(x.completedAt) === selectedDay)" :key="c.id" class="py-2 px-3 bg-gray-50 rounded">
                     <div class="flex justify-between items-center">

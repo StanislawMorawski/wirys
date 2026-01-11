@@ -107,7 +107,7 @@ export default defineComponent({
 
     <div class="grid grid-cols-7 gap-1 mt-2">
       <!-- blank slots for first day offset -->
-      <template v-for="i in firstDayOfMonth">
+      <template v-for="_i in firstDayOfMonth">
         <div class="h-20 border rounded bg-white/0"></div>
       </template>
 
